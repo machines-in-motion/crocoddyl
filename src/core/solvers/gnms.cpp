@@ -72,7 +72,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       if (dVexp_ >= 0) {  // descend direction
         if (d_[0] < th_grad_ || dV_ > th_acceptstep_ * dVexp_) {
           was_feasible_ = is_feasible_;
-          setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+        //   setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+          setCandidate(xs_try_, us_try_, false);
           cost_ = cost_try_;
           recalcDiff = true;
           break;
@@ -80,7 +81,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } else {  // reducing the gaps by allowing a small increment in the cost value
         if (dV_ > th_acceptnegstep_ * dVexp_) {
           was_feasible_ = is_feasible_;
-          setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+        //   setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+          setCandidate(xs_try_, us_try_, false);
           cost_ = cost_try_;
           recalcDiff = true;
           break;
@@ -181,7 +183,7 @@ void SolverGNMS::forwardPass(const double steplength) {
         const boost::shared_ptr<ActionModelAbstract>& m = models[t];
         const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         const std::size_t nu = m->get_nu();
-        const Eigen::VectorXd& px = (d->Fx - d->Fu * K_[t]) * dx_[t] - d->Fu * k_[t] + fs_[t];
+        const Eigen::VectorXd& px = (d->Fx - d->Fu * K_[t]) * dx_[t] - d->Fu * k_[t] + fs_[t+1];
         m->get_state()->integrate(xs_[t+1], steplength * px, xs_try_[t+1]); 
         m->get_state()->diff(xs_[t+1], xs_try_[t+1], dx_[t+1]);
         if (nu != 0) {
@@ -203,23 +205,24 @@ void SolverGNMS::forwardPass(const double steplength) {
         }
     }
 
+    // running model T-1
     const boost::shared_ptr<ActionModelAbstract>& mprev = models.back();
     const boost::shared_ptr<ActionDataAbstract>& dprev = datas.back();
     const std::size_t nu = mprev->get_nu();
     if (nu != 0) {
-        us_try_.back().noalias() = us_.back() - k_.back() * steplength - K_.back() * dx_.back();
+        us_try_[T-1].noalias() = us_[T-1] - k_[T-1] * steplength - K_[T-1] * dx_[T-1];
         mprev->calc(dprev, xs_try_[T-1], us_try_[T-1]);
     } else {
         mprev->calc(dprev, xs_try_[T-1]);
     }
     cost_try_ += dprev->cost;
 
+    // terminal model
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    
-    const Eigen::VectorXd& px = (d->Fx - d->Fu * K_.back()) * dx_.back() - d->Fu * k_.back() + fs_.back();
-    m->get_state()->integrate(xs_.back(), steplength * px, xs_try_.back());
-    m->calc(d, xs_try_.back());
+    const Eigen::VectorXd& px = (dprev->Fx - dprev->Fu * K_[T-1]) * dx_[T-1] - dprev->Fu * k_[T-1] + fs_[T];
+    m->get_state()->integrate(xs_[T], steplength * px, xs_try_[T]);
+    m->calc(d, xs_try_[T]);
     cost_try_ += d->cost;
 
     if (raiseIfNaN(cost_try_)) {
