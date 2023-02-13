@@ -182,8 +182,8 @@ struct DifferentialActionDataFreeFwdDynamicsTpl : public DifferentialActionDataA
         multibody(&pinocchio, model->get_actuation()->createData()),
         costs(model->get_costs()->createData(&multibody)),
         Minv(model->get_state()->get_nv(), model->get_state()->get_nv()),
-        u_drift(model->get_nu()),
-        dtau_dx(model->get_nu(), model->get_state()->get_ndx()),
+        u_drift(model->get_state()->get_nv()),
+        dtau_dx(model->get_state()->get_nv(), model->get_state()->get_ndx()),
         tmp_xstatic(model->get_state()->get_nx()) {
     costs->shareMemory(this);
     Minv.setZero();
