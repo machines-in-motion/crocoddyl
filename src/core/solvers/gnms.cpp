@@ -16,7 +16,11 @@
 namespace crocoddyl {
 
 SolverGNMS::SolverGNMS(boost::shared_ptr<ShootingProblem> problem)
-    : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2) {}
+    : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2){
+      
+      const std::size_t T = this->problem_->get_T();
+      fs_try_.resize(T + 1);
+    }
 
 SolverGNMS::~SolverGNMS() {}
 
@@ -43,7 +47,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     while (true) {
       try {
         computeDirection(recalcDiff);
-      } catch (std::exception& e) {
+      } 
+      catch (std::exception& e) {
         recalcDiff = false;
         increaseRegularization();
         if (xreg_ == reg_max_) {
@@ -183,16 +188,20 @@ void SolverGNMS::forwardPass(const double steplength) {
         const boost::shared_ptr<ActionModelAbstract>& m = models[t];
         const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         const std::size_t nu = m->get_nu();
-        const Eigen::VectorXd& px = (d->Fx - d->Fu * K_[t]) * dx_[t] - d->Fu * k_[t] + fs_[t+1];
-        m->get_state()->integrate(xs_[t+1], steplength * px, xs_try_[t+1]); 
+
+        // error = x + dx - f(x + dx, u + du)
+        fs_try_[t] = xs_try_[t] - xnext_;
+        const Eigen::VectorXd& px = (d->Fx - d->Fu * K_[t]) * dx_[t] - steplength * d->Fu * k_[t] + steplength *fs_[t+1];
+        m->get_state()->integrate(xs_[t+1], px, xs_try_[t+1]); 
         m->get_state()->diff(xs_[t+1], xs_try_[t+1], dx_[t+1]);
         if (nu != 0) {
             us_try_[t].noalias() = us_[t] - k_[t] * steplength - K_[t] * dx_[t];
             m->calc(d, xs_try_[t], us_try_[t]);
+
         } else {
             m->calc(d, xs_try_[t]);
         }
-        // xnext_ = d->xnext;
+        xnext_ = d->xnext;
         cost_try_ += d->cost;
 
         if (raiseIfNaN(cost_try_)) {
@@ -205,6 +214,8 @@ void SolverGNMS::forwardPass(const double steplength) {
         }
     }
 
+
+    fs_try_[T-1] = xs_try_[T-1] - xnext_;
     // running model T-1
     const boost::shared_ptr<ActionModelAbstract>& mprev = models.back();
     const boost::shared_ptr<ActionDataAbstract>& dprev = datas.back();
@@ -215,15 +226,18 @@ void SolverGNMS::forwardPass(const double steplength) {
     } else {
         mprev->calc(dprev, xs_try_[T-1]);
     }
+    xnext_ = dprev->xnext;
     cost_try_ += dprev->cost;
 
     // terminal model
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    const Eigen::VectorXd& px = (dprev->Fx - dprev->Fu * K_[T-1]) * dx_[T-1] - dprev->Fu * k_[T-1] + fs_[T];
-    m->get_state()->integrate(xs_[T], steplength * px, xs_try_[T]);
+    const Eigen::VectorXd& px = (dprev->Fx - dprev->Fu * K_[T-1]) * dx_[T-1] -steplength * dprev->Fu * k_[T-1] +steplength * fs_[T];
+    m->get_state()->integrate(xs_[T], px, xs_try_[T]);
     m->calc(d, xs_try_[T]);
     cost_try_ += d->cost;
+    fs_try_[T] = xs_try_[T] - xnext_;
+
 
     if (raiseIfNaN(cost_try_)) {
         STOP_PROFILER("SolverGNMS::forwardPass");

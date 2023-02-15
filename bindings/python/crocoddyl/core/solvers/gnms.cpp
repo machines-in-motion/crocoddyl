@@ -49,9 +49,17 @@ void exposeSolverGNMS() {
       .def("updateExpectedImprovement", &SolverGNMS::updateExpectedImprovement,
            bp::return_value_policy<bp::copy_const_reference>(), bp::args("self"),
            "Update the expected improvement model\n\n")
+     .def("increaseRegularization", &SolverDDP::increaseRegularization, bp::args("self"),
+           "Increase regularization")
+      .def_readwrite("xs_try", &SolverGNMS::xs_try_, "xs try")
+      .def_readwrite("us_try", &SolverGNMS::us_try_, "us try")
+      .def_readwrite("cost_try", &SolverGNMS::cost_try_, "cost try")
+      .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
+
       .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
                     bp::make_function(&SolverGNMS::set_th_acceptnegstep),
                     "threshold for step acceptance in ascent direction");
+     
 }
 
 }  // namespace python

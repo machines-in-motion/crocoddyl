@@ -93,10 +93,21 @@ class SolverGNMS : public SolverDDP {
    */
   void set_th_acceptnegstep(const double th_acceptnegstep);
 
+  const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
+  const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
+ 
+ public:
+  using SolverDDP::xs_try_;
+  using SolverDDP::us_try_;
+  using SolverDDP::cost_try_;
+  std::vector<Eigen::VectorXd> fs_try_;                               //!< Gaps/defects between shooting nodes
+
  protected:
   double dg_;  //!< Internal data for computing the expected improvement
   double dq_;  //!< Internal data for computing the expected improvement
   double dv_;  //!< Internal data for computing the expected improvement
+
+
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction
