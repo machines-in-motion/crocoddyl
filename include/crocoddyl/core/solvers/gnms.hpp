@@ -14,6 +14,7 @@
 
 #include "crocoddyl/core/solvers/ddp.hpp"
 
+
 namespace crocoddyl {
 
 /**
@@ -75,23 +76,30 @@ class SolverGNMS : public SolverDDP {
    * V_{\mathbf{xx}_k}\mathbf{x}_k
    * - V_{\mathbf{xx}_k}\mathbf{\bar{f}}_k). \f}
    */
-  virtual const Eigen::Vector2d& expectedImprovement();
+  // virtual const Eigen::Vector2d& expectedImprovement();
 
   /**
    * @brief Update internal values for computing the expected improvement
    */
   void updateExpectedImprovement();
-  virtual void forwardPass(const double stepLength);
 
+  virtual void forwardPass();
   /**
-   * @brief Return the threshold used for accepting step along ascent direction
+   * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
    */
-  double get_th_acceptnegstep() const;
+  virtual void computeDirection(const bool recalcDiff);
 
-  /**
-   * @brief Modify the threshold used for accepting step along ascent direction
-   */
-  void set_th_acceptnegstep(const double th_acceptnegstep);
+  virtual double tryStep(const double stepLength);
+
+  // /**
+  //  * @brief Return the threshold used for accepting step along ascent direction
+  //  */
+  // double get_th_acceptnegstep() const;
+
+  // /**
+  //  * @brief Modify the threshold used for accepting step along ascent direction
+  //  */
+  // void set_th_acceptnegstep(const double th_acceptnegstep);
 
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
   const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
@@ -101,13 +109,19 @@ class SolverGNMS : public SolverDDP {
   using SolverDDP::us_try_;
   using SolverDDP::cost_try_;
   std::vector<Eigen::VectorXd> fs_try_;                               //!< Gaps/defects between shooting nodes
+  std::vector<Eigen::VectorXd> dx_;                                    //!< the descent direction for x
+  std::vector<Eigen::VectorXd> du_;                                    //!< the descent direction for u
 
  protected:
-  double dg_;  //!< Internal data for computing the expected improvement
-  double dq_;  //!< Internal data for computing the expected improvement
-  double dv_;  //!< Internal data for computing the expected improvement
-
-
+  double merit_ = 0; // merit function at nominal traj
+  double merit_try_ = 0; // merit function for the step length tried
+  double x_grad_norm_ = 0; // 1 norm of the delta x
+  double u_grad_norm_ = 0; // 1 norm of the delta u
+  double gap_norm_ = 0; // 1 norm of the gaps
+  double gap_norm_try_ = 0; // 1 norm of the gaps
+  double cost_ = 0; // cost function
+  double mu_ = 1e3; // penalty no constraint violation
+  double termination_tol_ = 1e-4;
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction

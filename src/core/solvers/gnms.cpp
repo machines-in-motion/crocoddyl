@@ -16,22 +16,53 @@
 namespace crocoddyl {
 
 SolverGNMS::SolverGNMS(boost::shared_ptr<ShootingProblem> problem)
-    : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2){
+    : SolverDDP(problem){
       
       const std::size_t T = this->problem_->get_T();
+      const std::size_t ndx = problem_->get_ndx();
+      // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
+      dx_.resize(T+1);
+      du_.resize(T);
+      const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+      for (std::size_t t = 0; t < T; ++t) {
+        const boost::shared_ptr<ActionModelAbstract>& model = models[t];
+        const std::size_t nu = model->get_nu();
+        dx_[t].resize(ndx); du_[t].resize(nu);
+        fs_try_[t].resize(ndx);
+        dx_[t].setZero();
+        du_[t] = Eigen::VectorXd::Zero(nu);
+        fs_try_[t] = Eigen::VectorXd::Zero(ndx);
+      }
+      dx_.back().resize(ndx);
+      dx_.back().setZero();
+      fs_try_.back().resize(ndx);
+      fs_try_.back() = Eigen::VectorXd::Zero(ndx);
+
+
+      const std::size_t n_alphas = 10;
+      alphas_.resize(n_alphas);
+      for (std::size_t n = 0; n < n_alphas; ++n) {
+        alphas_[n] = 1. / pow(2., static_cast<double>(n));
+      }
+      if (th_stepinc_ < alphas_[n_alphas - 1]) {
+        th_stepinc_ = alphas_[n_alphas - 1];
+        std::cerr << "Warning: th_stepinc has higher value than lowest alpha value, set to "
+                  << std::to_string(alphas_[n_alphas - 1]) << std::endl;
+      }
     }
 
 SolverGNMS::~SolverGNMS() {}
 
 bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::vector<Eigen::VectorXd>& init_us,
                        const std::size_t maxiter, const bool is_feasible, const double reginit) {
+
   START_PROFILER("SolverGNMS::solve");
   if (problem_->is_updated()) {
     resizeData();
   }
   xs_try_[0] = problem_->get_x0();  // it is needed in case that init_xs[0] is infeasible
-  setCandidate(init_xs, init_us, is_feasible);
+  setCandidate(init_xs, init_us, false);
 
   if (std::isnan(reginit)) {
     xreg_ = reg_min_;
@@ -40,8 +71,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     xreg_ = reginit;
     ureg_ = reginit;
   }
-  was_feasible_ = false;
 
+  was_feasible_ = false;
   bool recalcDiff = true;
   for (iter_ = 0; iter_ < maxiter; ++iter_) {
     while (true) {
@@ -59,41 +90,33 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       }
       break;
     }
-    updateExpectedImprovement();
+
+    // merit_try_ = tryStep(1.0);
+    setCandidate(xs_try_, us_try_, false);
 
     // We need to recalculate the derivatives when the step length passes
     recalcDiff = false;
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
       steplength_ = *it;
-
       try {
-        dV_ = tryStep(steplength_);
+        merit_try_ = tryStep(steplength_);
+        // std::cout << "Merit Try : " << merit_try_ << "   Merit   " << merit_ <<  "grad norm " <<  x_grad_norm_  +  u_grad_norm_ << std::endl;
+
       } catch (std::exception& e) {
+        // std::cout << "blows up" << std::endl;
         continue;
       }
-      expectedImprovement();
-      dVexp_ = steplength_ * (d_[0] + 0.5 * steplength_ * d_[1]);
+      // std::cout << "Merit Try : " << merit_try_ << "   Merit   " << merit_ <<  "grad norm " <<  x_grad_norm_  +  u_grad_norm_ << std::endl;
 
-      if (dVexp_ >= 0) {  // descend direction
-        if (d_[0] < th_grad_ || dV_ > th_acceptstep_ * dVexp_) {
-          was_feasible_ = is_feasible_;
-        //   setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
-          setCandidate(xs_try_, us_try_, false);
-          cost_ = cost_try_;
-          recalcDiff = true;
-          break;
-        }
-      } else {  // reducing the gaps by allowing a small increment in the cost value
-        if (dV_ > th_acceptnegstep_ * dVexp_) {
-          was_feasible_ = is_feasible_;
-        //   setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
-          setCandidate(xs_try_, us_try_, false);
-          cost_ = cost_try_;
-          recalcDiff = true;
-          break;
-        }
+      if (merit_ > merit_try_) {
+        setCandidate(xs_try_, us_try_, false);
+        recalcDiff = true;
+        break;
       }
+
     }
+    std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
+
 
     if (steplength_ > th_stepdec_) {
       decreaseRegularization();
@@ -113,7 +136,7 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       callback(*this);
     }
 
-    if (was_feasible_ && stop_ < th_stop_) {
+    if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ) {
       STOP_PROFILER("SolverGNMS::solve");
       return true;
     }
@@ -122,139 +145,127 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
   return false;
 }
 
-const Eigen::Vector2d& SolverGNMS::expectedImprovement() {
-  dv_ = 0;
-  const std::size_t T = this->problem_->get_T();
-  if (!is_feasible_) {
-    // NB: The dimension of vectors xs_try_ and xs_ are T+1, whereas the dimension of dx_ is T. Here, we are re-using
-    // the final element of dx_ for the computation of the difference at the terminal node. Using the access iterator
-    // back() this re-use of the final element is fine. Cf. the discussion at
-    // https://github.com/loco-3d/crocoddyl/issues/1022
-    problem_->get_terminalModel()->get_state()->diff(xs_try_.back(), xs_.back(), dx_.back());
-    fTVxx_p_.noalias() = Vxx_.back() * dx_.back();
-    dv_ -= fs_.back().dot(fTVxx_p_);
-    const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
 
-    for (std::size_t t = 0; t < T; ++t) {
-      models[t]->get_state()->diff(xs_try_[t], xs_[t], dx_[t]);
-      fTVxx_p_.noalias() = Vxx_[t] * dx_[t];
-      dv_ -= fs_[t].dot(fTVxx_p_);
-    }
-  }
-  d_[0] = dg_ + dv_;
-  d_[1] = dq_ - 2 * dv_;
-  return d_;
-}
+void SolverGNMS::computeDirection(const bool recalcDiff){
+  START_PROFILER("SolverGNMS::computeDirection");
+  // if (recalcDiff) {
+  cost_ = calcDiff();
+  // }
+  gap_norm_ = 0;
+  const std::size_t T = problem_->get_T();
 
-void SolverGNMS::updateExpectedImprovement() {
-  dg_ = 0;
-  dq_ = 0;
-  const std::size_t T = this->problem_->get_T();
-  if (!is_feasible_) {
-    dg_ -= Vx_.back().dot(fs_.back());
-    fTVxx_p_.noalias() = Vxx_.back() * fs_.back();
-    dq_ += fs_.back().dot(fTVxx_p_);
-  }
-  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
   for (std::size_t t = 0; t < T; ++t) {
-    const std::size_t nu = models[t]->get_nu();
-    if (nu != 0) {
-      dg_ += Qu_[t].dot(k_[t]);
-      dq_ -= k_[t].dot(Quuk_[t]);
-    }
-    if (!is_feasible_) {
-      dg_ -= Vx_[t].dot(fs_[t]);
-      fTVxx_p_.noalias() = Vxx_[t] * fs_[t];
-      dq_ += fs_[t].dot(fTVxx_p_);
-    }
+    gap_norm_ += fs_[t].lpNorm<1>();   
   }
+  gap_norm_ += fs_.back().lpNorm<1>();   
+  
+  merit_ = cost_ + mu_*gap_norm_;
+
+  backwardPass();
+  forwardPass();
+
+  STOP_PROFILER("SolverGNMS::computeDirection");
+
 }
 
-void SolverGNMS::forwardPass(const double steplength) {
+void SolverGNMS::forwardPass(){
+    START_PROFILER("SolverGNMS::forwardPass");
+    STOP_PROFILER("SolverGNMS::forwardPass");
+    x_grad_norm_ = 0; u_grad_norm_ = 0;
+
+    const std::size_t T = problem_->get_T();
+    const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+    for (std::size_t t = 0; t < T; ++t) {
+      const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+      du_[t].noalias() = -K_[t]*(dx_[t]) - k_[t];
+      dx_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dx_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
+      
+      x_grad_norm_ += dx_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
+      u_grad_norm_ += du_[t].lpNorm<1>();
+
+    }
+
+    x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
+    x_grad_norm_ = x_grad_norm_/T;
+    u_grad_norm_ = u_grad_norm_/T; 
+}
+
+
+double SolverGNMS::tryStep(const double steplength) {
     if (steplength > 1. || steplength < 0.) {
         throw_pretty("Invalid argument: "
                     << "invalid step length, value is between 0. to 1.");
     }
-    START_PROFILER("SolverGNMS::forwardPass");
+    START_PROFILER("SolverGNMS::tryStep");
     cost_try_ = 0.;
-    xnext_ = problem_->get_x0();
+    merit_try_ = 0;
+    
     const std::size_t T = problem_->get_T();
     const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
-    // fs_[0] = Eigen::VectorXd::Zero(xnext_.size());
-    xs_try_[0] = xnext_;
-    dx_[0] = Eigen::VectorXd::Zero(xnext_.size());
-    for (std::size_t t = 0; t < T-1; ++t) {
+    for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& m = models[t];
-        const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         const std::size_t nu = m->get_nu();
 
         // error = x + dx - f(x + dx, u + du)
-        fs_try_[t] = xs_try_[t] - xnext_;
-        const Eigen::VectorXd& px = (d->Fx - d->Fu * K_[t]) * dx_[t] - steplength * d->Fu * k_[t] + steplength *fs_[t+1];
-        m->get_state()->integrate(xs_[t+1], px, xs_try_[t+1]); 
-        m->get_state()->diff(xs_[t+1], xs_try_[t+1], dx_[t+1]);
+        // std::cout << dx_.size() << std::endl;
+        m->get_state()->integrate(xs_[t], steplength * dx_[t], xs_try_[t]); 
         if (nu != 0) {
-            us_try_[t].noalias() = us_[t] - k_[t] * steplength - K_[t] * dx_[t];
-            m->calc(d, xs_try_[t], us_try_[t]);
-
-        } else {
-            m->calc(d, xs_try_[t]);
-        }
-        xnext_ = d->xnext;
-        cost_try_ += d->cost;
-
-        if (raiseIfNaN(cost_try_)) {
-            STOP_PROFILER("SolverGNMS::forwardPass");
-            throw_pretty("forward_error");
-        }
-        if (raiseIfNaN(xnext_.lpNorm<Eigen::Infinity>())) {
-            STOP_PROFILER("SolverGNMS::forwardPass");
-            throw_pretty("forward_error");
-        }
+            us_try_[t].noalias() = us_[t] + steplength * du_[t];
+        }        
     }
 
-
-    fs_try_[T-1] = xs_try_[T-1] - xnext_;
-    // running model T-1
-    const boost::shared_ptr<ActionModelAbstract>& mprev = models.back();
-    const boost::shared_ptr<ActionDataAbstract>& dprev = datas.back();
-    const std::size_t nu = mprev->get_nu();
-    if (nu != 0) {
-        us_try_[T-1].noalias() = us_[T-1] - k_[T-1] * steplength - K_[T-1] * dx_[T-1];
-        mprev->calc(dprev, xs_try_[T-1], us_try_[T-1]);
-    } else {
-        mprev->calc(dprev, xs_try_[T-1]);
-    }
-    xnext_ = dprev->xnext;
-    cost_try_ += dprev->cost;
-
-    // terminal model
+    // Terminal state update
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
+    m->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
+
+    gap_norm_try_ = 0;
+    for (std::size_t t = 0; t < T; ++t) {
+        const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+        const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+        
+        m->calc(d, xs_try_[t], us_try_[t]);
+        xnext_ = d->xnext;
+        
+        // error = x + dx - f(x + dx, u + du)
+        m->get_state()->diff(xs_try_[t+1], xnext_, fs_try_[t]);
+
+        cost_try_ += d->cost;
+        gap_norm_try_ += fs_try_[t].lpNorm<1>(); 
+        
+        if (raiseIfNaN(cost_try_)) {
+          STOP_PROFILER("SolverGNMS::tryStep");
+          throw_pretty("step_error");
+        }   
+    }
+    const boost::shared_ptr<ActionModelAbstract>& mter = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    const Eigen::VectorXd& px = (dprev->Fx - dprev->Fu * K_[T-1]) * dx_[T-1] -steplength * dprev->Fu * k_[T-1] +steplength * fs_[T];
-    m->get_state()->integrate(xs_[T], px, xs_try_[T]);
-    m->calc(d, xs_try_[T]);
+    mter->calc(d, xs_try_.back());
     cost_try_ += d->cost;
-    fs_try_[T] = xs_try_[T] - xnext_;
+
+    merit_try_ = cost_try_ + mu_*gap_norm_try_;
+
+    // std::cout << "try step cost_try " << cost_try_ << " gap_norm_try_" << gap_norm_try_ << std::endl;
 
 
     if (raiseIfNaN(cost_try_)) {
-        STOP_PROFILER("SolverGNMS::forwardPass");
-        throw_pretty("forward_error");
+        STOP_PROFILER("SolverGNMS::tryStep");
+        throw_pretty("step_error");
     }
+
+    STOP_PROFILER("SolverGNMS::tryStep");
+
+    return merit_try_;
+}
+
+// double SolverGNMS::get_th_acceptnegstep() const { return th_acceptnegstep_; }
+
+// void SolverGNMS::set_th_acceptnegstep(const double th_acceptnegstep) {
+//   if (0. > th_acceptnegstep) {
+//     throw_pretty("Invalid argument: "
+//                  << "th_acceptnegstep value has to be positive.");
 //   }
-    STOP_PROFILER("SolverGNMS::forwardPass");
-}
-
-double SolverGNMS::get_th_acceptnegstep() const { return th_acceptnegstep_; }
-
-void SolverGNMS::set_th_acceptnegstep(const double th_acceptnegstep) {
-  if (0. > th_acceptnegstep) {
-    throw_pretty("Invalid argument: "
-                 << "th_acceptnegstep value has to be positive.");
-  }
-  th_acceptnegstep_ = th_acceptnegstep;
-}
+//   th_acceptnegstep_ = th_acceptnegstep;
+// }
 
 }  // namespace crocoddyl
