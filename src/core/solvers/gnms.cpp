@@ -104,25 +104,18 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       steplength_ = *it;
       try {
         merit_try_ = tryStep(steplength_);
-        // std::cout << "Merit Try : " << merit_try_ << "   Merit   " << merit_ <<  "grad norm " <<  x_grad_norm_  +  u_grad_norm_ << std::endl;
-
       } catch (std::exception& e) {
-        // std::cout << "blows up" << std::endl;
         continue;
       }
-      // std::cout << "Merit Try : " << merit_try_ << "   Merit   " << merit_ <<  "grad norm " <<  x_grad_norm_  +  u_grad_norm_ << std::endl;
-
       if (merit_ > merit_try_) {
         setCandidate(xs_try_, us_try_, false);
         recalcDiff = true;
         break;
       }
-
     }
     // std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
     // std::cout << "iter "<< iter_ << " Merit_try : " << merit_try_ << "   cost_try   " << cost_try_ <<  "  gap norm try " <<  gap_norm_try_
-    //                                                                                            << std::endl;
-
+                                                                                              //  << std::endl;
     if (steplength_ > th_stepdec_) {
       decreaseRegularization();
     }
@@ -156,9 +149,9 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
 
 void SolverGNMS::computeDirection(const bool recalcDiff){
   START_PROFILER("SolverGNMS::computeDirection");
-  // if (recalcDiff) {
-  cost_ = calcDiff();
-  // }
+  if (recalcDiff) {
+    cost_ = calcDiff();
+  }
   gap_norm_ = 0;
   const std::size_t T = problem_->get_T();
 
@@ -190,11 +183,10 @@ void SolverGNMS::forwardPass(){
       
       x_grad_norm_ += dx_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
       u_grad_norm_ += du_[t].lpNorm<1>();
-
     }
 
     x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
-    x_grad_norm_ = x_grad_norm_/T;
+    x_grad_norm_ = x_grad_norm_/(T+1);
     u_grad_norm_ = u_grad_norm_/T; 
 }
 
@@ -212,8 +204,10 @@ double SolverGNMS::tryStep(const double steplength) {
     const std::size_t T = problem_->get_T();
     const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+
     for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+        const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         const std::size_t nu = m->get_nu();
 
         // error = x + dx - f(x + dx, u + du)
@@ -222,37 +216,35 @@ double SolverGNMS::tryStep(const double steplength) {
         if (nu != 0) {
             us_try_[t].noalias() = us_[t] + steplength * du_[t];
         }        
-    }
-
-    // Terminal state update
-    const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
-    m->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
-
-    for (std::size_t t = 0; t < T; ++t) {
-        const boost::shared_ptr<ActionModelAbstract>& m = models[t];
-        const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-        
         m->calc(d, xs_try_[t], us_try_[t]);        
-        // error = x + dx - f(x + dx, u + du)
-        m->get_state()->diff(xs_try_[t+1], d->xnext, fs_try_[t]);
-
         cost_try_ += d->cost;
-        gap_norm_try_ += fs_try_[t].lpNorm<1>(); 
-        
+
+        if (t > 0){
+          const boost::shared_ptr<ActionDataAbstract>& d_prev = datas[t-1];
+          m->get_state()->diff(xs_try_[t], d_prev->xnext, fs_try_[t-1]);
+          gap_norm_try_ += fs_try_[t-1].lpNorm<1>(); 
+        } 
+
         if (raiseIfNaN(cost_try_)) {
           STOP_PROFILER("SolverGNMS::tryStep");
           throw_pretty("step_error");
         }   
     }
-    const boost::shared_ptr<ActionModelAbstract>& mter = problem_->get_terminalModel();
-    const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    mter->calc(d, xs_try_.back());
-    cost_try_ += d->cost;
+
+    // Terminal state update
+    const boost::shared_ptr<ActionModelAbstract>& m_ter = problem_->get_terminalModel();
+    const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
+    m_ter->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
+    m_ter->calc(d_ter, xs_try_.back());
+    cost_try_ += d_ter->cost;
+
+    const boost::shared_ptr<ActionModelAbstract>& m = models[T-1];
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[T-1];
+    
+    m->get_state()->diff(xs_try_.back(), d->xnext, fs_try_[T-1]);
+    gap_norm_try_ += fs_try_[T-1].lpNorm<1>(); 
 
     merit_try_ = cost_try_ + mu_*gap_norm_try_;
-
-    // std::cout << "try step cost_try " << cost_try_ << " gap_norm_try_" << gap_norm_try_ << std::endl;
-
 
     if (raiseIfNaN(cost_try_)) {
         STOP_PROFILER("SolverGNMS::tryStep");
