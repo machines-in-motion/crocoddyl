@@ -107,15 +107,14 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         continue;
       }
-      if (merit_ > merit_try_) {
+      // if (merit_ > merit_try_) {
+      if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
         setCandidate(xs_try_, us_try_, false);
         recalcDiff = true;
         break;
       }
     }
-    // std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
-    // std::cout << "iter "<< iter_ << " Merit_try : " << merit_try_ << "   cost_try   " << cost_try_ <<  "  gap norm try " <<  gap_norm_try_
-                                                                                              //  << std::endl;
+
     if (steplength_ > th_stepdec_) {
       decreaseRegularization();
     }
@@ -138,6 +137,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     }
 
     if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ) {
+    // if (gap_norm_ < termination_tol_ ) {
+
       STOP_PROFILER("SolverGNMS::solve");
       return true;
     }
@@ -171,7 +172,6 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
 
 void SolverGNMS::forwardPass(){
     START_PROFILER("SolverGNMS::forwardPass");
-    STOP_PROFILER("SolverGNMS::forwardPass");
     x_grad_norm_ = 0; u_grad_norm_ = 0;
 
     const std::size_t T = problem_->get_T();
@@ -188,6 +188,8 @@ void SolverGNMS::forwardPass(){
     x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
     x_grad_norm_ = x_grad_norm_/(T+1);
     u_grad_norm_ = u_grad_norm_/T; 
+    STOP_PROFILER("SolverGNMS::forwardPass");
+
 }
 
 
