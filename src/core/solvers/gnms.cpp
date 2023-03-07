@@ -116,7 +116,7 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       }
 
     }
-    std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
+    // std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
     // std::cout << "iter "<< iter_ << " Merit_try : " << merit_try_ << "   cost_try   " << cost_try_ <<  "  gap norm try " <<  gap_norm_try_
     //                                                                                            << std::endl;
 

@@ -121,7 +121,7 @@ class SolverGNMS : public SolverDDP {
   double gap_norm_try_ = 0; // 1 norm of the gaps
   double cost_ = 0; // cost function
   double mu_ = 1e0; // penalty no constraint violation
-  double termination_tol_ = 1e-4;
+  double termination_tol_ = 1e-3;
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction
