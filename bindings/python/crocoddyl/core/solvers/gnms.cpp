@@ -54,7 +54,10 @@ void exposeSolverGNMS() {
       .def_readwrite("xs_try", &SolverGNMS::xs_try_, "xs try")
       .def_readwrite("us_try", &SolverGNMS::us_try_, "us try")
       .def_readwrite("cost_try", &SolverGNMS::cost_try_, "cost try")
-      .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try");
+      .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
+
+      .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
+                    "callbacks");
 
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
      //                bp::make_function(&SolverGNMS::set_th_acceptnegstep),

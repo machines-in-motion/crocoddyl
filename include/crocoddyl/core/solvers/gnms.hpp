@@ -103,7 +103,16 @@ class SolverGNMS : public SolverDDP {
 
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
   const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
- 
+  
+  const double get_gap_norm() const { return gap_norm_; };
+  const double get_xgrad_norm() const { return x_grad_norm_; };
+  const double get_ugrad_norm() const { return u_grad_norm_; };
+  const double get_merit() const { return merit_; };
+  
+  void printCallbacks();
+  void setCallbacks(bool inCallbacks);
+  const bool getCallbacks();
+
  public:
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;
@@ -122,6 +131,7 @@ class SolverGNMS : public SolverDDP {
   double cost_ = 0; // cost function
   double mu_ = 1e0; // penalty no constraint violation
   double termination_tol_ = 1e-3;
+  bool with_callbacks_ = false;
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction

@@ -10,6 +10,9 @@
 #include <omp.h>
 #endif  // CROCODDYL_WITH_MULTITHREADING
 
+#include <iostream>
+#include <iomanip>
+
 #include "crocoddyl/core/utils/exception.hpp"
 #include "crocoddyl/core/solvers/gnms.hpp"
 
@@ -132,10 +135,13 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     }
     stoppingCriteria();
 
-    const std::size_t n_callbacks = callbacks_.size();
-    for (std::size_t c = 0; c < n_callbacks; ++c) {
-      CallbackAbstract& callback = *callbacks_[c];
-      callback(*this);
+    // const std::size_t n_callbacks = callbacks_.size();
+    // for (std::size_t c = 0; c < n_callbacks; ++c) {
+    //   CallbackAbstract& callback = *callbacks_[c];
+    //   callback(*this);
+    // }
+    if(with_callbacks_){
+      printCallbacks();
     }
 
     if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ) {
@@ -258,6 +264,28 @@ double SolverGNMS::tryStep(const double steplength) {
     return merit_try_;
 }
 
+void SolverGNMS::printCallbacks(){
+  if (this->get_iter() % 10 == 0) {
+    std::cout << "iter     merit         cost         grad      step    ||gaps||";
+    std::cout << std::endl;
+  }
+  std::cout << std::setw(4) << this->get_iter() << "  ";
+  std::cout << std::scientific << std::setprecision(5) << this->get_merit() << "  ";
+  std::cout << std::scientific << std::setprecision(5) << this->get_cost() << "  ";
+  std::cout << this->get_xgrad_norm() + this->get_ugrad_norm() << "  ";
+  std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
+  std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm();
+  std::cout << std::endl;
+  std::cout << std::flush;
+}
+
+void SolverGNMS::setCallbacks(bool inCallbacks){
+  with_callbacks_ = inCallbacks;
+}
+
+const bool SolverGNMS::getCallbacks(){
+  return with_callbacks_;
+}
 // double SolverGNMS::get_th_acceptnegstep() const { return th_acceptnegstep_; }
 
 // void SolverGNMS::set_th_acceptnegstep(const double th_acceptnegstep) {

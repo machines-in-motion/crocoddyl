@@ -63,6 +63,7 @@ void exposeCore() {
   exposeSolverBoxFDDP();
   exposeSolverGNMS();
   exposeCallbacks();
+  // exposeCallbacksGNMS();
   exposeStopWatch();
 }
 

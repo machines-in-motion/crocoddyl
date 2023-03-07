@@ -65,6 +65,7 @@ void exposeSolverBoxDDP();
 void exposeSolverBoxFDDP();
 void exposeSolverGNMS();
 void exposeCallbacks();
+// void exposeCallbacksGNMS();
 void exposeStopWatch();
 
 void exposeCore();
