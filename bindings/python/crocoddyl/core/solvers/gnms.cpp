@@ -58,6 +58,11 @@ void exposeSolverGNMS() {
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
                     "callbacks");
+      
+      .add_property("set_mu", bp::make_function(&SolverGNMS::set_mu), bp::make_function(&SolverGNMS::set_mu),
+                    "Sets the penalty term for dynamic violation in the merit function")
+      .add_property("set_termination_tolerance", bp::make_function(&SolverGNMS::set_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
+                    "Sets the termination criteria to exit the iteration");
 
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
      //                bp::make_function(&SolverGNMS::set_th_acceptnegstep),
