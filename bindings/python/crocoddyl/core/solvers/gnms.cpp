@@ -57,7 +57,7 @@ void exposeSolverGNMS() {
       .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
-                    "callbacks");
+                    "callbacks")
       
       .add_property("set_mu", bp::make_function(&SolverGNMS::set_mu), bp::make_function(&SolverGNMS::set_mu),
                     "Sets the penalty term for dynamic violation in the merit function")
