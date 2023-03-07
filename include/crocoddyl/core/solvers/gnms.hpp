@@ -91,19 +91,12 @@ class SolverGNMS : public SolverDDP {
 
   virtual double tryStep(const double stepLength);
 
-  // /**
-  //  * @brief Return the threshold used for accepting step along ascent direction
-  //  */
-  // double get_th_acceptnegstep() const;
-
-  // /**
-  //  * @brief Modify the threshold used for accepting step along ascent direction
-  //  */
-  // void set_th_acceptnegstep(const double th_acceptnegstep);
-
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
   const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
- 
+
+  void set_mu(double mu) { mu_ = mu; };
+  void set_termination_tolerance(double tol) { termination_tol_ = tol; };
+  
  public:
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;

@@ -54,7 +54,12 @@ void exposeSolverGNMS() {
       .def_readwrite("xs_try", &SolverGNMS::xs_try_, "xs try")
       .def_readwrite("us_try", &SolverGNMS::us_try_, "us try")
       .def_readwrite("cost_try", &SolverGNMS::cost_try_, "cost try")
-      .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try");
+      .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
+      
+      .add_property("set_mu", bp::make_function(&SolverGNMS::set_mu), bp::make_function(&SolverGNMS::set_mu),
+                    "Sets the penalty term for dynamic violation in the merit function")
+      .add_property("set_termination_tolerance", bp::make_function(&SolverGNMS::set_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
+                    "Sets the termination criteria to exit the iteration");
 
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
      //                bp::make_function(&SolverGNMS::set_th_acceptnegstep),
