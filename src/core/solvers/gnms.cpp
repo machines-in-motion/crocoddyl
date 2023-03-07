@@ -72,9 +72,14 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     ureg_ = reginit;
   }
 
-  was_feasible_ = false;
-  bool recalcDiff = true;
+  
+
   for (iter_ = 0; iter_ < maxiter; ++iter_) {
+
+
+    was_feasible_ = false;
+    bool recalcDiff = true;
+
     while (true) {
       try {
         computeDirection(recalcDiff);
@@ -91,11 +96,7 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       break;
     }
 
-    // merit_try_ = tryStep(1.0);
-    setCandidate(xs_try_, us_try_, false);
-
     // We need to recalculate the derivatives when the step length passes
-    recalcDiff = false;
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
       steplength_ = *it;
       try {
@@ -116,7 +117,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
 
     }
     std::cout << "iter "<< iter_ << " Merit : " << merit_ << "   cost   " << cost_ <<  "  gap norm " <<  gap_norm_  << "  step length "<< steplength_ << std::endl;
-
+    // std::cout << "iter "<< iter_ << " Merit_try : " << merit_try_ << "   cost_try   " << cost_try_ <<  "  gap norm try " <<  gap_norm_try_
+    //                                                                                            << std::endl;
 
     if (steplength_ > th_stepdec_) {
       decreaseRegularization();
@@ -199,7 +201,8 @@ double SolverGNMS::tryStep(const double steplength) {
     START_PROFILER("SolverGNMS::tryStep");
     cost_try_ = 0.;
     merit_try_ = 0;
-    
+    gap_norm_try_ = 0;
+
     const std::size_t T = problem_->get_T();
     const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
@@ -219,16 +222,13 @@ double SolverGNMS::tryStep(const double steplength) {
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     m->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
 
-    gap_norm_try_ = 0;
     for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& m = models[t];
         const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         
-        m->calc(d, xs_try_[t], us_try_[t]);
-        xnext_ = d->xnext;
-        
+        m->calc(d, xs_try_[t], us_try_[t]);        
         // error = x + dx - f(x + dx, u + du)
-        m->get_state()->diff(xs_try_[t+1], xnext_, fs_try_[t]);
+        m->get_state()->diff(xs_try_[t+1], d->xnext, fs_try_[t]);
 
         cost_try_ += d->cost;
         gap_norm_try_ += fs_try_[t].lpNorm<1>(); 
