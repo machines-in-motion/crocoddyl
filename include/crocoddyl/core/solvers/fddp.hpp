@@ -93,6 +93,12 @@ class SolverFDDP : public SolverDDP {
    */
   void set_th_acceptnegstep(const double th_acceptnegstep);
 
+  virtual void checkKKTConditions();
+  
+  std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
+  double KKT_ = std::numeric_limits<double>::infinity(); // KKT conditions residual
+  bool use_kkt_criteria_ = true;
+
  protected:
   double dg_;  //!< Internal data for computing the expected improvement
   double dq_;  //!< Internal data for computing the expected improvement
