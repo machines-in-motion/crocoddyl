@@ -58,7 +58,9 @@ void exposeSolverGNMS() {
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
                     "callbacks")
-      
+      .add_property("use_kkt_criteria", bp::make_function(&SolverGNMS::set_use_kkt_criteria), bp::make_function(&SolverGNMS::get_use_kkt_criteria),
+                    "use_kkt_criteria")
+
       .add_property("set_mu", bp::make_function(&SolverGNMS::set_mu), bp::make_function(&SolverGNMS::set_mu),
                     "Sets the penalty term for dynamic violation in the merit function")
       .add_property("set_termination_tolerance", bp::make_function(&SolverGNMS::set_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
