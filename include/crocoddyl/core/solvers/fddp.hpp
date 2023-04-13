@@ -93,11 +93,20 @@ class SolverFDDP : public SolverDDP {
    */
   void set_th_acceptnegstep(const double th_acceptnegstep);
 
+  /**
+   * @brief Compute the KKT conditions residual
+   */
   virtual void checkKKTConditions();
   
-  std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
-  double KKT_ = std::numeric_limits<double>::infinity(); // KKT conditions residual
-  bool use_kkt_criteria_ = true;
+  const bool get_use_kkt_criteria() const { return use_kkt_criteria_; }
+  void set_termination_tolerance(double tol) { termination_tol_ = tol; };
+  void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
+
+  std::vector<Eigen::VectorXd> lag_mul_;                   //!< the Lagrange multiplier of the dynamics constraint
+  double KKT_ = std::numeric_limits<double>::infinity();   //!< KKT conditions residual
+  bool use_kkt_criteria_ = true;                           //!< Use KKT conditions as termination criteria 
+  Eigen::VectorXd fs_flat_;                                //!< Gaps/defects between shooting nodes (1D array)
+  double termination_tol_ = 1e-8;                          //!< Termination tolerance
 
  protected:
   double dg_;  //!< Internal data for computing the expected improvement

@@ -90,7 +90,10 @@ class SolverGNMS : public SolverDDP {
   virtual void computeDirection(const bool recalcDiff);
 
   virtual double tryStep(const double stepLength);
-  
+
+  /**
+   * @brief Compute the KKT conditions residual
+   */
   virtual void checkKKTConditions();
 
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
@@ -114,24 +117,25 @@ class SolverGNMS : public SolverDDP {
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;
   using SolverDDP::cost_try_;
-  std::vector<Eigen::VectorXd> fs_try_;                               //!< Gaps/defects between shooting nodes
+  std::vector<Eigen::VectorXd> fs_try_;                                //!< Gaps/defects between shooting nodes
   std::vector<Eigen::VectorXd> dx_;                                    //!< the descent direction for x
   std::vector<Eigen::VectorXd> du_;                                    //!< the descent direction for u
   std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
+  Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
+  double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
 
  protected:
-  double merit_ = 0; // merit function at nominal traj
-  double merit_try_ = 0; // merit function for the step length tried
-  double x_grad_norm_ = 0; // 1 norm of the delta x
-  double u_grad_norm_ = 0; // 1 norm of the delta u
-  double gap_norm_ = 0; // 1 norm of the gaps
-  double gap_norm_try_ = 0; // 1 norm of the gaps
-  double cost_ = 0; // cost function
-  double mu_ = 1e0; // penalty no constraint violation
-  double termination_tol_ = 1e-3;
-  bool with_callbacks_ = false;
-  double KKT_ = std::numeric_limits<double>::infinity(); // KKT conditions residual
-  bool use_kkt_criteria_ = true;
+  double merit_ = 0;                                           //!< merit function at nominal traj
+  double merit_try_ = 0;                                       //!< merit function for the step length tried
+  double x_grad_norm_ = 0;                                     //!< 1 norm of the delta x
+  double u_grad_norm_ = 0;                                     //!< 1 norm of the delta u
+  double gap_norm_ = 0;                                        //!< 1 norm of the gaps
+  double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
+  double cost_ = 0;                                            //!< cost function
+  double mu_ = 1e0;                                            //!< penalty no constraint violation
+  double termination_tol_ = 1e-8;                              //!< Termination tolerance
+  bool with_callbacks_ = false;                                //!< With callbacks
+  bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction

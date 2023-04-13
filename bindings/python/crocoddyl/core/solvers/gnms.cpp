@@ -55,6 +55,8 @@ void exposeSolverGNMS() {
       .def_readwrite("us_try", &SolverGNMS::us_try_, "us try")
       .def_readwrite("cost_try", &SolverGNMS::cost_try_, "cost try")
       .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
+      .def_readwrite("lag_mul", &SolverGNMS::lag_mul_, "lagrange multipliers")
+      .def_readwrite("KKT", &SolverGNMS::KKT_, "KKT residual")
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
                     "callbacks")

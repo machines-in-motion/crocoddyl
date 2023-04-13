@@ -25,6 +25,8 @@ SolverGNMS::SolverGNMS(boost::shared_ptr<ShootingProblem> problem)
       const std::size_t ndx = problem_->get_ndx();
       // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
+      fs_flat_.resize(ndx*(T + 1));
+      fs_flat_.setZero();
       dx_.resize(T+1);
       lag_mul_.resize(T+1);
       du_.resize(T);
@@ -146,9 +148,8 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     if(use_kkt_criteria_){
       KKT_ = 0.;
       checkKKTConditions();
-      if (KKT_  <= 1e-8) {
+      if (KKT_  <= termination_tol_) {
         STOP_PROFILER("SolverGNMS::solve");
-        std::cout << "KKT condition reached ! " << std::endl;
         return true;
       }
     }  
@@ -188,14 +189,18 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
 
 void SolverGNMS::checkKKTConditions(){
   const std::size_t T = problem_->get_T();
+  const std::size_t ndx = problem_->get_ndx();
   const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
   for (std::size_t t = 0; t < T; ++t) {
     const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-    KKT_ += (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>();
-    KKT_ += (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>();
+    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
+    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    fs_flat_.segment(t*ndx, ndx) = fs_[t];
   }
+  fs_flat_.tail(ndx) = fs_.back();
   const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
-  KKT_ += (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>();
+  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
 }
 
 

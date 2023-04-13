@@ -49,6 +49,14 @@ void exposeSolverFDDP() {
       .def("updateExpectedImprovement", &SolverFDDP::updateExpectedImprovement,
            bp::return_value_policy<bp::copy_const_reference>(), bp::args("self"),
            "Update the expected improvement model\n\n")
+      
+      .def_readwrite("lag_mul", &SolverFDDP::lag_mul_, "lagrange multipliers")
+      .def_readwrite("KKT", &SolverFDDP::KKT_, "KKT residual")
+      
+      .add_property("use_kkt_criteria", bp::make_function(&SolverFDDP::set_use_kkt_criteria), bp::make_function(&SolverFDDP::get_use_kkt_criteria),
+                    "use_kkt_criteria")
+      .add_property("set_termination_tolerance", bp::make_function(&SolverFDDP::set_termination_tolerance), bp::make_function(&SolverFDDP::set_termination_tolerance),
+                    "Sets the termination criteria to exit the iteration")
       .add_property("th_acceptNegStep", bp::make_function(&SolverFDDP::get_th_acceptnegstep),
                     bp::make_function(&SolverFDDP::set_th_acceptnegstep),
                     "threshold for step acceptance in ascent direction");
