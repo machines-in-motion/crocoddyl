@@ -103,7 +103,8 @@ class SolverGNMS : public SolverDDP {
   const double get_xgrad_norm() const { return x_grad_norm_; };
   const double get_ugrad_norm() const { return u_grad_norm_; };
   const double get_merit() const { return merit_; };
-  const bool get_use_kkt_criteria() const { return use_kkt_criteria_; }
+  const bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
+  const double get_mu() const { return mu_; };
 
   void printCallbacks();
   void setCallbacks(bool inCallbacks);
