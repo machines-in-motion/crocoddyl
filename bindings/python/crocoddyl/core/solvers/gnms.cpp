@@ -59,13 +59,13 @@ void exposeSolverGNMS() {
       .def_readwrite("KKT", &SolverGNMS::KKT_, "KKT residual")
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
-                    "callbacks")
+                    "Activates the callbacks when true (default: False)")
       .add_property("use_kkt_criteria", bp::make_function(&SolverGNMS::set_use_kkt_criteria), bp::make_function(&SolverGNMS::get_use_kkt_criteria),
-                    "use_kkt_criteria")
+                    "Use the KKT residual condition as a termination criteria (default: True)")
       .add_property("mu", bp::make_function(&SolverGNMS::get_mu), bp::make_function(&SolverGNMS::set_mu),
-                    "Sets the penalty term for dynamic violation in the merit function")
-      .add_property("set_termination_tolerance", bp::make_function(&SolverGNMS::set_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
-                    "Sets the termination criteria to exit the iteration");
+                    "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("termination_tolerance", bp::make_function(&SolverGNMS::get_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
+                    "Termination criteria to exit the iteration (default: 1e-8)");
 
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
      //                bp::make_function(&SolverGNMS::set_th_acceptnegstep),

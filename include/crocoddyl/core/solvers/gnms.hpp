@@ -105,6 +105,7 @@ class SolverGNMS : public SolverDDP {
   const double get_merit() const { return merit_; };
   const bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
   const double get_mu() const { return mu_; };
+  const double get_termination_tolerance() const { return termination_tol_; };
 
   void printCallbacks();
   void setCallbacks(bool inCallbacks);

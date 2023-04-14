@@ -53,10 +53,10 @@ void exposeSolverFDDP() {
       .def_readwrite("lag_mul", &SolverFDDP::lag_mul_, "lagrange multipliers")
       .def_readwrite("KKT", &SolverFDDP::KKT_, "KKT residual")
       
-      .add_property("use_kkt_criteria", bp::make_function(&SolverFDDP::set_use_kkt_criteria), bp::make_function(&SolverFDDP::get_use_kkt_criteria),
-                    "use_kkt_criteria")
-      .add_property("set_termination_tolerance", bp::make_function(&SolverFDDP::set_termination_tolerance), bp::make_function(&SolverFDDP::set_termination_tolerance),
-                    "Sets the termination criteria to exit the iteration")
+      .add_property("use_kkt_criteria", bp::make_function(&SolverFDDP::get_use_kkt_criteria), bp::make_function(&SolverFDDP::set_use_kkt_criteria),
+                    "Use the KKT residual condition as a termination criteria (default: True)")
+      .add_property("termination_tolerance", bp::make_function(&SolverFDDP::get_termination_tolerance), bp::make_function(&SolverFDDP::set_termination_tolerance),
+                    "Termination criteria to exit the iteration (default: 1e-8)")
       .add_property("th_acceptNegStep", bp::make_function(&SolverFDDP::get_th_acceptnegstep),
                     bp::make_function(&SolverFDDP::set_th_acceptnegstep),
                     "threshold for step acceptance in ascent direction");
