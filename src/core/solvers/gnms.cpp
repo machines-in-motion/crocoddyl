@@ -25,23 +25,31 @@ SolverGNMS::SolverGNMS(boost::shared_ptr<ShootingProblem> problem)
       const std::size_t ndx = problem_->get_ndx();
       // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
+      fs_flat_.resize(ndx*(T + 1));
+      fs_flat_.setZero();
       dx_.resize(T+1);
+      lag_mul_.resize(T+1);
       du_.resize(T);
+      KKT_ = 0.;
       const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
         const std::size_t nu = model->get_nu();
         dx_[t].resize(ndx); du_[t].resize(nu);
         fs_try_[t].resize(ndx);
+        lag_mul_[t].resize(ndx); 
+        lag_mul_[t].setZero();
         dx_[t].setZero();
         du_[t] = Eigen::VectorXd::Zero(nu);
         fs_try_[t] = Eigen::VectorXd::Zero(ndx);
       }
+      lag_mul_.back().resize(ndx);
+      lag_mul_.back().setZero();
       dx_.back().resize(ndx);
       dx_.back().setZero();
       fs_try_.back().resize(ndx);
       fs_try_.back() = Eigen::VectorXd::Zero(ndx);
-
+      
 
       const std::size_t n_alphas = 10;
       alphas_.resize(n_alphas);
@@ -107,11 +115,21 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         continue;
       }
-      // if (merit_ > merit_try_) {
-      if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
-        setCandidate(xs_try_, us_try_, false);
-        recalcDiff = true;
-        break;
+      // Heuristic line search criteria
+      if(use_heuristic_line_search_){
+        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
+      }
+      // Line-search criteria using merit function
+      else{
+        if (merit_ > merit_try_) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
       }
     }
 
@@ -136,11 +154,21 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       printCallbacks();
     }
 
-    if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ) {
-    // if (gap_norm_ < termination_tol_ ) {
-
-      STOP_PROFILER("SolverGNMS::solve");
-      return true;
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverGNMS::solve");
+        return true;
+      }
+    }  
+    // Old criteria
+    else {
+      if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
+        STOP_PROFILER("SolverGNMS::solve");
+        return true;
+      }
     }
   }
   STOP_PROFILER("SolverGNMS::solve");
@@ -155,12 +183,11 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
   }
   gap_norm_ = 0;
   const std::size_t T = problem_->get_T();
-
   for (std::size_t t = 0; t < T; ++t) {
     gap_norm_ += fs_[t].lpNorm<1>();   
   }
   gap_norm_ += fs_.back().lpNorm<1>();   
-  
+
   merit_ = cost_ + mu_*gap_norm_;
 
   backwardPass();
@@ -170,6 +197,23 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
 
 }
 
+void SolverGNMS::checkKKTConditions(){
+  const std::size_t T = problem_->get_T();
+  const std::size_t ndx = problem_->get_ndx();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+  for (std::size_t t = 0; t < T; ++t) {
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
+    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    fs_flat_.segment(t*ndx, ndx) = fs_[t];
+  }
+  fs_flat_.tail(ndx) = fs_.back();
+  const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
+  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
+}
+
+
 void SolverGNMS::forwardPass(){
     START_PROFILER("SolverGNMS::forwardPass");
     x_grad_norm_ = 0; u_grad_norm_ = 0;
@@ -178,13 +222,13 @@ void SolverGNMS::forwardPass(){
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
     for (std::size_t t = 0; t < T; ++t) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
       du_[t].noalias() = -K_[t]*(dx_[t]) - k_[t];
       dx_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dx_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
-      
       x_grad_norm_ += dx_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
       u_grad_norm_ += du_[t].lpNorm<1>();
     }
-
+    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
     x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
     x_grad_norm_ = x_grad_norm_/(T+1);
     u_grad_norm_ = u_grad_norm_/T; 

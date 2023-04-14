@@ -16,7 +16,22 @@
 namespace crocoddyl {
 
 SolverFDDP::SolverFDDP(boost::shared_ptr<ShootingProblem> problem)
-    : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2) {}
+    : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2) {
+      const std::size_t T = this->problem_->get_T();
+      const std::size_t ndx = problem_->get_ndx();
+      lag_mul_.resize(T+1);
+      KKT_ = 0.;
+      fs_flat_.resize(ndx*(T + 1));
+      fs_flat_.setZero();
+      const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+      for (std::size_t t = 0; t < T; ++t) {
+        const boost::shared_ptr<ActionModelAbstract>& model = models[t];
+        lag_mul_[t].resize(ndx); 
+        lag_mul_[t].setZero();
+      }
+      lag_mul_.back().resize(ndx);
+      lag_mul_.back().setZero();
+    }
 
 SolverFDDP::~SolverFDDP() {}
 
@@ -105,14 +120,41 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       CallbackAbstract& callback = *callbacks_[c];
       callback(*this);
     }
-
-    if (was_feasible_ && stop_ < th_stop_) {
-      STOP_PROFILER("SolverFDDP::solve");
-      return true;
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverFDDP::solve");
+        return true;
+      }
+    } 
+    // Old criteria
+    else {
+      if (was_feasible_ && stop_ < th_stop_) {
+        STOP_PROFILER("SolverFDDP::solve");
+        return true;
+      }
     }
   }
   STOP_PROFILER("SolverFDDP::solve");
   return false;
+}
+
+void SolverFDDP::checkKKTConditions(){
+  const std::size_t T = problem_->get_T();
+  const std::size_t ndx = problem_->get_ndx();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+  for (std::size_t t = 0; t < T; ++t) {
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
+    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    fs_flat_.segment(t*ndx, ndx) = fs_[t];
+  }
+  fs_flat_.tail(ndx) = fs_.back();
+  const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
+  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
 }
 
 const Eigen::Vector2d& SolverFDDP::expectedImprovement() {
@@ -179,7 +221,8 @@ void SolverFDDP::forwardPass(const double steplength) {
       const boost::shared_ptr<ActionModelAbstract>& m = models[t];
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
       const std::size_t nu = m->get_nu();
-
+      //compute Lagrange multipliers for KKT condition check
+      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
       xs_try_[t] = xnext_;
       m->get_state()->diff(xs_[t], xs_try_[t], dx_[t]);
       if (nu != 0) {
@@ -203,6 +246,7 @@ void SolverFDDP::forwardPass(const double steplength) {
 
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
+    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
     xs_try_.back() = xnext_;
     m->calc(d, xs_try_.back());
     cost_try_ += d->cost;
@@ -216,6 +260,7 @@ void SolverFDDP::forwardPass(const double steplength) {
       const boost::shared_ptr<ActionModelAbstract>& m = models[t];
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
       const std::size_t nu = m->get_nu();
+      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
       m->get_state()->integrate(xnext_, fs_[t] * (steplength - 1), xs_try_[t]);
       m->get_state()->diff(xs_[t], xs_try_[t], dx_[t]);
       if (nu != 0) {
@@ -239,6 +284,7 @@ void SolverFDDP::forwardPass(const double steplength) {
 
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
+    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
     m->get_state()->integrate(xnext_, fs_.back() * (steplength - 1), xs_try_.back());
     m->calc(d, xs_try_.back());
     cost_try_ += d->cost;

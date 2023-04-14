@@ -55,14 +55,19 @@ void exposeSolverGNMS() {
       .def_readwrite("us_try", &SolverGNMS::us_try_, "us try")
       .def_readwrite("cost_try", &SolverGNMS::cost_try_, "cost try")
       .def_readwrite("fs_try", &SolverGNMS::fs_try_, "fs_try")
+      .def_readwrite("lag_mul", &SolverGNMS::lag_mul_, "lagrange multipliers")
+      .def_readwrite("KKT", &SolverGNMS::KKT_, "KKT residual")
 
       .add_property("with_callbacks", bp::make_function(&SolverGNMS::getCallbacks), bp::make_function(&SolverGNMS::setCallbacks),
-                    "callbacks")
-      
-      .add_property("set_mu", bp::make_function(&SolverGNMS::set_mu), bp::make_function(&SolverGNMS::set_mu),
-                    "Sets the penalty term for dynamic violation in the merit function")
-      .add_property("set_termination_tolerance", bp::make_function(&SolverGNMS::set_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
-                    "Sets the termination criteria to exit the iteration");
+                    "Activates the callbacks when true (default: False)")
+      .add_property("use_kkt_criteria", bp::make_function(&SolverGNMS::set_use_kkt_criteria), bp::make_function(&SolverGNMS::get_use_kkt_criteria),
+                    "Use the KKT residual condition as a termination criteria (default: True)")
+      .add_property("mu", bp::make_function(&SolverGNMS::get_mu), bp::make_function(&SolverGNMS::set_mu),
+                    "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("use_heuristic_line_search", bp::make_function(&SolverGNMS::get_use_heuristic_line_search), bp::make_function(&SolverGNMS::set_use_heuristic_line_search),
+                    "Use the heuristic line search criteria (default: False)")
+      .add_property("termination_tolerance", bp::make_function(&SolverGNMS::get_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
+                    "Termination criteria to exit the iteration (default: 1e-8)");
 
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverGNMS::get_th_acceptnegstep),
      //                bp::make_function(&SolverGNMS::set_th_acceptnegstep),
