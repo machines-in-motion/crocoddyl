@@ -64,6 +64,8 @@ void exposeSolverGNMS() {
                     "Use the KKT residual condition as a termination criteria (default: True)")
       .add_property("mu", bp::make_function(&SolverGNMS::get_mu), bp::make_function(&SolverGNMS::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("use_heuristic_line_search", bp::make_function(&SolverGNMS::get_use_heuristic_line_search), bp::make_function(&SolverGNMS::set_use_heuristic_line_search),
+                    "Use the heuristic line search criteria (default: False)")
       .add_property("termination_tolerance", bp::make_function(&SolverGNMS::get_termination_tolerance), bp::make_function(&SolverGNMS::set_termination_tolerance),
                     "Termination criteria to exit the iteration (default: 1e-8)");
 

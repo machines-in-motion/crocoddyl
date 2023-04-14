@@ -25,18 +25,18 @@ std::ostream& operator<<(std::ostream& os, SolverTypes::Type type) {
     case SolverTypes::SolverKKT:
       os << "SolverKKT";
       break;
-    case SolverTypes::SolverDDP:
-      os << "SolverDDP";
-      break;
-    case SolverTypes::SolverFDDP:
-      os << "SolverFDDP";
-      break;
-    case SolverTypes::SolverBoxDDP:
-      os << "SolverBoxDDP";
-      break;
-    case SolverTypes::SolverBoxFDDP:
-      os << "SolverBoxFDDP";
-      break;
+    // case SolverTypes::SolverDDP:
+    //   os << "SolverDDP";
+    //   break;
+    // case SolverTypes::SolverFDDP:
+    //   os << "SolverFDDP";
+    //   break;
+    // case SolverTypes::SolverBoxDDP:
+    //   os << "SolverBoxDDP";
+    //   break;
+    // case SolverTypes::SolverBoxFDDP:
+    //   os << "SolverBoxFDDP";
+    //   break;
     case SolverTypes::SolverGNMS:
       os << "SolverGNMS";
       break;
@@ -75,18 +75,18 @@ boost::shared_ptr<crocoddyl::SolverAbstract> SolverFactory::create(SolverTypes::
     case SolverTypes::SolverKKT:
       solver = boost::make_shared<crocoddyl::SolverKKT>(problem);
       break;
-    case SolverTypes::SolverDDP:
-      solver = boost::make_shared<crocoddyl::SolverDDP>(problem);
-      break;
-    case SolverTypes::SolverFDDP:
-      solver = boost::make_shared<crocoddyl::SolverFDDP>(problem);
-      break;
-    case SolverTypes::SolverBoxDDP:
-      solver = boost::make_shared<crocoddyl::SolverBoxDDP>(problem);
-      break;
-    case SolverTypes::SolverBoxFDDP:
-      solver = boost::make_shared<crocoddyl::SolverBoxFDDP>(problem);
-      break;
+    // case SolverTypes::SolverDDP:
+    //   solver = boost::make_shared<crocoddyl::SolverDDP>(problem);
+    //   break;
+    // case SolverTypes::SolverFDDP:
+    //   solver = boost::make_shared<crocoddyl::SolverFDDP>(problem);
+    //   break;
+    // case SolverTypes::SolverBoxDDP:
+    //   solver = boost::make_shared<crocoddyl::SolverBoxDDP>(problem);
+    //   break;
+    // case SolverTypes::SolverBoxFDDP:
+    //   solver = boost::make_shared<crocoddyl::SolverBoxFDDP>(problem);
+    //   break;
     case SolverTypes::SolverGNMS:
       solver = boost::make_shared<crocoddyl::SolverGNMS>(problem);
       break;

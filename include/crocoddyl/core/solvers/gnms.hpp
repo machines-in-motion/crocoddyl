@@ -104,6 +104,7 @@ class SolverGNMS : public SolverDDP {
   const double get_ugrad_norm() const { return u_grad_norm_; };
   const double get_merit() const { return merit_; };
   const bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
+  const bool get_use_heuristic_line_search() const { return use_heuristic_line_search_; };
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
 
@@ -115,6 +116,8 @@ class SolverGNMS : public SolverDDP {
   void set_mu(double mu) { mu_ = mu; };
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
+  void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
+  
  public:
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;
@@ -125,6 +128,7 @@ class SolverGNMS : public SolverDDP {
   std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
   Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
   double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
+  bool use_heuristic_line_search_ = false;                              //!< Use heuristic line search
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj

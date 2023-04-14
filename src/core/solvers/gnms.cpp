@@ -115,11 +115,21 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         continue;
       }
-      // if (merit_ > merit_try_) {
-      if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
-        setCandidate(xs_try_, us_try_, false);
-        recalcDiff = true;
-        break;
+      // Heuristic line search criteria
+      if(use_heuristic_line_search_){
+        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
+      }
+      // Line-search criteria using merit function
+      else{
+        if (merit_ > merit_try_) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
       }
     }
 
