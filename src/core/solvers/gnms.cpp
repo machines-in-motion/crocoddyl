@@ -304,7 +304,7 @@ double SolverGNMS::tryStep(const double steplength) {
 
 void SolverGNMS::printCallbacks(){
   if (this->get_iter() % 10 == 0) {
-    std::cout << "iter     merit         cost         grad      step    ||gaps||";
+    std::cout << "iter     merit         cost         grad      step    ||gaps||        KKT";
     std::cout << std::endl;
   }
   std::cout << std::setw(4) << this->get_iter() << "  ";
@@ -312,7 +312,8 @@ void SolverGNMS::printCallbacks(){
   std::cout << std::scientific << std::setprecision(5) << this->get_cost() << "  ";
   std::cout << this->get_xgrad_norm() + this->get_ugrad_norm() << "  ";
   std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
-  std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm();
+  std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm() << "  ";
+  std::cout << std::scientific << std::setprecision(5) << KKT_;
   std::cout << std::endl;
   std::cout << std::flush;
 }
