@@ -35,6 +35,7 @@ void exposeCore() {
   exposeCostControl();
   exposeActionNumDiff();
   exposeDifferentialActionNumDiff();
+  exposeConstraintAbstract();
   exposeActivationNumDiff();
   exposeStateNumDiff();
   exposeShootingProblem();
@@ -62,6 +63,7 @@ void exposeCore() {
   exposeSolverBoxDDP();
   exposeSolverBoxFDDP();
   exposeSolverGNMS();
+  exposeSolverFADMM();
   exposeCallbacks();
   // exposeCallbacksGNMS();
   exposeStopWatch();

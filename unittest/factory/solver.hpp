@@ -23,7 +23,9 @@ struct SolverTypes {
   // SolverFDDP, 
   // SolverBoxDDP, 
   SolverBoxFDDP, 
-  SolverGNMS, NbSolverTypes };
+  SolverGNMS,
+  SolverFADMM,
+  NbSolverTypes };
   static std::vector<Type> init_all() {
     std::vector<Type> v;
     v.clear();

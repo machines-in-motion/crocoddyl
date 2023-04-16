@@ -13,6 +13,7 @@
 #include "crocoddyl/core/solvers/box-ddp.hpp"
 #include "crocoddyl/core/solvers/box-fddp.hpp"
 #include "crocoddyl/core/solvers/gnms.hpp"
+#include "crocoddyl/core/solvers/fadmm.hpp"
 #include "crocoddyl/core/utils/exception.hpp"
 
 namespace crocoddyl {
@@ -39,6 +40,9 @@ std::ostream& operator<<(std::ostream& os, SolverTypes::Type type) {
     //   break;
     case SolverTypes::SolverGNMS:
       os << "SolverGNMS";
+      break;
+    case SolverTypes::SolverFADMM:
+      os << "SolverFADMM";
       break;
     case SolverTypes::NbSolverTypes:
       os << "NbSolverTypes";
@@ -90,6 +94,9 @@ boost::shared_ptr<crocoddyl::SolverAbstract> SolverFactory::create(SolverTypes::
     case SolverTypes::SolverGNMS:
       solver = boost::make_shared<crocoddyl::SolverGNMS>(problem);
       break;
+    // case SolverTypes::SolverFADMM:
+    //   solver = boost::make_shared<crocoddyl::SolverFADMM>(problem, constraint_models);
+    //   break;
     default:
       throw_pretty(__FILE__ ": Wrong SolverTypes::Type given");
       break;
