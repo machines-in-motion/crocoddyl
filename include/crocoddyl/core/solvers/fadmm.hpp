@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "crocoddyl/core/solvers/ddp.hpp"
+#include "crocoddyl/core/constraint-base.hpp"
 
 
 namespace crocoddyl {
@@ -84,12 +85,16 @@ class SolverFADMM : public SolverDDP {
   void updateExpectedImprovement();
 
   virtual void forwardPass();
+  virtual void backwardPass();
+
   /**
    * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
    */
   virtual void computeDirection(const bool recalcDiff);
 
   virtual double tryStep(const double stepLength);
+
+  virtual void calc(const bool recalc = true);
 
   // virtual void set_constraints(const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models){
   //   constraint_models_ = constraint_models;
@@ -122,6 +127,8 @@ class SolverFADMM : public SolverDDP {
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
   void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
   
+  void update_lagrangian_parameters();
+
  public:
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;
@@ -133,6 +140,16 @@ class SolverFADMM : public SolverDDP {
   Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
   double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
   bool use_heuristic_line_search_ = false;                              //!< Use heuristic line search
+
+  std::vector<Eigen::VectorXd> dxtilde_;                                    //!< the descent direction for x
+  std::vector<Eigen::VectorXd> dutilde_;                                    //!< the descent direction for u
+
+  // ADMM parameters
+  std::vector<Eigen::VectorXd> y_;                                    //!< lagrangian dual variable
+  std::vector<Eigen::VectorXd> z_;                                    //!< second admm variable
+  std::vector<Eigen::VectorXd> z_prev_;                               //!< second admm variable previous
+  std::vector<Eigen::VectorXd> z_relaxed_;                           //!< relaxed step of z
+  std::vector<Eigen::VectorXd> rho_vec_;                              //!< rho vector
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -146,10 +163,24 @@ class SolverFADMM : public SolverDDP {
   double termination_tol_ = 1e-8;                              //!< Termination tolerance
   bool with_callbacks_ = false;                                //!< With callbacks
   bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
+  double sigma_ = 1e-6; // proximal term
+  double alpha_ = 1.6; // relaxed step size
+
+
+  double rho_estimate_sparse = 0.0; // rho estimate
+  double rho_sparse = 0.0; // rho
+  double norm_primal_ = 0.0; // norm primal residual
+  double norm_dual_ = 0.0; // norm dual residual
+  double norm_primal_rel_ = 0.0; // norm primal relative residual
+  double norm_dual_rel_ = 0.0; // norm dual relative residual
+
 
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction
-  const std::vector<boost::shared_ptr<ConstraintModelAbstract>> *constraint_models_;
+  const std::vector<boost::shared_ptr<ConstraintModelAbstract>> cmodels_;
+  std::vector<boost::shared_ptr<ConstraintDataAbstract>> cdatas_;
+  Eigen::VectorXd dual_vecx;
+  Eigen::VectorXd dual_vecu;
 
 };
 
