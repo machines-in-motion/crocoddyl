@@ -117,6 +117,9 @@ class SolverFADMM : public SolverDDP {
   const std::vector<Eigen::VectorXd>& get_y() const { return y_; };
   const std::vector<Eigen::VectorXd>& get_z() const { return z_; };
 
+  const std::vector<Eigen::VectorXd>& get_rho_vec() const { return rho_vec_; };
+
+
   const double get_gap_norm() const { return gap_norm_; };
   const double get_xgrad_norm() const { return x_grad_norm_; };
   const double get_ugrad_norm() const { return u_grad_norm_; };

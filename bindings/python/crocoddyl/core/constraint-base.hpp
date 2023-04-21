@@ -32,7 +32,7 @@ class ConstraintModelAbstract_wrap : public ConstraintModelAbstract, public bp::
     //   throw_pretty("Invalid argument: "
     //                << "u has wrong dimension (it should be " + std::to_string(nu_) + ")");
     // }
-    return bp::call<void>(this->get_override("calc").ptr(), data, (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    return bp::call<void>(this->get_override("calc").ptr(), data, croc_data, (Eigen::VectorXd)x, (Eigen::VectorXd)u);
   }
 
   void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const Eigen::VectorXd>& x,
@@ -45,7 +45,7 @@ class ConstraintModelAbstract_wrap : public ConstraintModelAbstract, public bp::
     //   throw_pretty("Invalid argument: "
     //                << "u has wrong dimension (it should be " + std::to_string(nu_) + ")");
     // }
-    return bp::call<void>(this->get_override("calcDiff").ptr(), data, (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    return bp::call<void>(this->get_override("calcDiff").ptr(), data, croc_data, (Eigen::VectorXd)x, (Eigen::VectorXd)u);
   }
 
   boost::shared_ptr<ConstraintDataAbstract> default_createData() {

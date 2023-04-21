@@ -250,20 +250,27 @@ void SolverFADMM::calculate(const bool recalc){
     cost_ = problem_->calcDiff(xs_, us_);
   }
   gap_norm_ = 0;
+
   const std::size_t T = problem_->get_T();
+  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
   const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+
   for (std::size_t t = 0; t < T; ++t) {
-    gap_norm_ += fs_[t].lpNorm<1>();  
+
+    const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
     const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
     boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t]; 
 
+    m->get_state()->diff(xs_[t + 1], d->xnext, fs_[t + 1]);
+
+    gap_norm_ += fs_[t+1].lpNorm<1>();  
     cmodel->calc(cdata, datas[t], xs_[t], us_[t]);
     cmodel->calcDiff(cdata, datas[t], xs_[t], us_[t]);
     //TODO : implement the constraint norm here
     // constraint_norm_ += std::max(cmodel->lb_ - cdata->c, 0)
 
   }
-  gap_norm_ += fs_.back().lpNorm<1>();   
 
   const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
   boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
@@ -288,11 +295,15 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     update_lagrangian_parameters();
     update_rho_sparse(iter);
   
-    std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
-             << " rho " << rho_sparse_ << std::endl;
-  
-    if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
-      break;
+
+    if (iter % rho_update_interval_ == 0 && iter > 1){
+
+      std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
+              << " rho " << rho_sparse_ << std::endl;
+    
+      if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
+        break;
+      }
     }
 
   }
@@ -395,10 +406,15 @@ void SolverFADMM::backwardPass() {
   if (!std::isnan(xreg_)) {
     Vxx_.back().diagonal().array() += xreg_;
   }
+  // std::cout << "Vx \n" << Vx_.back() << std::endl;
+  // std::cout << "Vxx \n" << Vxx_.back() << std::endl;
+  // std::cout << "gap \n" << fs_.back() << std::endl;
+  
+
   if (!is_feasible_) {
-    std::cout << "NOT FEASIBLE" << std::endl;
     Vx_.back().noalias() += Vxx_.back() * fs_.back();
   }
+
 
 
   const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
@@ -446,7 +462,7 @@ void SolverFADMM::backwardPass() {
       }
 
       // std::cout << "Qu \n" <<  Qu_[t] << std::endl;
-      std::cout << "Fu \n" <<  d->Fu << std::endl;
+      // std::cout << "Fu \n" <<  d->Fu << std::endl;
 
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
       // std::cout << "h \n" <<  Qu_[t] << std::endl;
@@ -541,22 +557,30 @@ void SolverFADMM::update_lagrangian_parameters(){
         continue;
       }
 
-      std::swap(z_prev_[t], z_[t]);
+      z_prev_[t] = z_[t];
       auto Cdx_Cdu = cdata->Cx * dxtilde_[t] + cdata->Cu * dutilde_[t];
       z_relaxed_[t] = alpha_ * Cdx_Cdu + (1 - alpha_) * z_[t];
 
-      for (std::size_t k = 0; k < nc; ++k){
+      // std::cout << "z_relaxed_[t] \n" << z_relaxed_[t] << std::endl;
+
+      const auto ub = cmodel->get_ub(); const auto lb = cmodel->get_lb();
+      // std::cout << "UB \n" << ub << std::endl; 
+      // std::cout << "lB \n" << lb << std::endl; 
+      // std::cout << "c \n" << cdata->c << std::endl; 
+      // std::cout << "rho \n" << rho_vec_[t] << std::endl; 
+
+      for (std::size_t k = 0; k < nc; ++k){ 
         z_[t][k] = (z_relaxed_[t][k] + (y_[t][k]/rho_vec_[t][k]));
-        auto ub = cmodel->get_ub(); auto lb = cmodel->get_lb(); 
         z_[t][k] = std::min(std::max(z_[t][k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
       }
-      
-      y_[t] = y_[t] + rho_vec_[t] * (z_relaxed_[t] - z_[t]);
+      // std::cout << "z_[t] \n" << z_[t] << std::endl;
+
+      y_[t] = y_[t] + rho_vec_[t].cwiseProduct(z_relaxed_[t] - z_[t]);
       dx_[t] = dxtilde_[t]; du_[t] = dutilde_[t];
 
       // operation repeated
-      dual_vecx = cdata->Cx.transpose() * (rho_vec_[t] *(z_[t] - z_prev_[t]));
-      dual_vecu = cdata->Cu.transpose() * (rho_vec_[t] *(z_[t] - z_prev_[t]));
+      dual_vecx = cdata->Cx.transpose() * (rho_vec_[t].cwiseProduct(z_[t] - z_prev_[t]));
+      dual_vecu = cdata->Cu.transpose() * (rho_vec_[t].cwiseProduct(z_[t] - z_prev_[t]));
 
       norm_dual_ = std::max(norm_dual_, std::max(dual_vecx.lpNorm<Eigen::Infinity>(), dual_vecu.lpNorm<Eigen::Infinity>()));
       norm_primal_ = std::max(norm_primal_, (Cdx_Cdu - z_[t]).lpNorm<Eigen::Infinity>());
@@ -582,10 +606,10 @@ void SolverFADMM::update_lagrangian_parameters(){
       z_.back()[k] = std::min(std::max(z_.back()[k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
     }
     
-    y_.back() = y_.back() + rho_vec_.back() * (z_relaxed_.back() - z_.back());
+    y_.back() = y_.back() + rho_vec_.back().cwiseProduct(z_relaxed_.back() - z_.back());
     dx_.back() = dxtilde_.back();
 
-    dual_vecx = cdata->Cx.transpose() * rho_vec_.back() *(z_.back() - z_prev_.back());
+    dual_vecx = cdata->Cx.transpose() * rho_vec_.back().cwiseProduct(z_.back() - z_prev_.back());
 
     norm_dual_ = std::max(norm_dual_, dual_vecx.lpNorm<Eigen::Infinity>());
     norm_primal_ = std::max(norm_primal_, (Cdx - z_.back()).lpNorm<Eigen::Infinity>());

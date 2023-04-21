@@ -86,6 +86,9 @@ void exposeSolverFADMM() {
       .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
       .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
 
+      .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
+
+
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("use_heuristic_line_search", bp::make_function(&SolverFADMM::get_use_heuristic_line_search), bp::make_function(&SolverFADMM::set_use_heuristic_line_search),

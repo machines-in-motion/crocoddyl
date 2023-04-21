@@ -99,6 +99,7 @@ void IntegratedActionModelEulerTpl<Scalar>::calcDiff(const boost::shared_ptr<Act
   d->Fx.topRightCorner(nv, nv).diagonal().array() += Scalar(time_step_);
   d->Fu.topRows(nv).noalias() = time_step2_ * d->da_du;
   d->Fu.bottomRows(nv).noalias() = time_step_ * d->da_du;
+
   state_->JintegrateTransport(x, d->dx, d->Fx, second);
   state_->Jintegrate(x, d->dx, d->Fx, d->Fx, first, addto);
   state_->JintegrateTransport(x, d->dx, d->Fu, second);
