@@ -44,13 +44,13 @@ void exposeConstraintAbstract() {
           ":param nu: dimension of control vector (default state.nv)\n"
           ":param ng: number of inequality constraints\n"
           ":param nh: number of equality constraints"))
-      .def("calc", pure_virtual(&ConstraintModelAbstract_wrap::calc), bp::args("self", "data", "x", "u"),
+      .def("calc", pure_virtual(&ConstraintModelAbstract_wrap::calc), bp::args("self", "data", "croc_data", "x", "u"),
            "Compute the constraint value.\n\n"
            ":param data: constraint data\n"
            ":param x: state point (dim. state.nx)\n"
            ":param u: control input (dim. nu)")
 
-      .def("calcDiff", pure_virtual(&ConstraintModelAbstract_wrap::calcDiff), bp::args("self", "data", "x", "u"),
+      .def("calcDiff", pure_virtual(&ConstraintModelAbstract_wrap::calcDiff), bp::args("self", "data", "croc_data", "x", "u"),
            "Compute the Jacobians of the constraint function.\n\n"
            "It computes the Jacobians of the constraint function.\n"
            "It assumes that calc has been run first.\n"

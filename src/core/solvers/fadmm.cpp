@@ -49,11 +49,14 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
         const std::size_t nu = model->get_nu();
         dx_[t].resize(ndx); du_[t].resize(nu);
+        dxtilde_[t].resize(ndx); dutilde_[t].resize(nu);
         fs_try_[t].resize(ndx);
         lag_mul_[t].resize(ndx); 
         lag_mul_[t].setZero();
-        dx_[t].setZero();
+        dx_[t].setZero(); dxtilde_[t].setZero();
         du_[t] = Eigen::VectorXd::Zero(nu);
+        dutilde_[t] = Eigen::VectorXd::Zero(nu);
+
         fs_try_[t] = Eigen::VectorXd::Zero(ndx);
 
         // Constraint Models
@@ -65,8 +68,22 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
         z_prev_[t].resize(nc); z_prev_[t].setZero();
         z_relaxed_[t].resize(nc); z_relaxed_[t].setZero();
         y_[t].resize(nc); y_[t].setZero();
-        rho_vec_[t].resize(nc);
+        rho_vec_[t].resize(nc); 
 
+        auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+        double infty = std::numeric_limits<double>::infinity();
+
+        for (std::size_t k = 0; k < nc; ++k){
+          if (lb[k] == -infty && ub[k] == infty){
+              rho_vec_[t][k] = rho_min_;
+          }
+          else if (lb[k] == ub[k]){
+              rho_vec_[t][k] = 1e3 * rho_sparse_;
+          }
+          else if (lb[k] != ub[k]){
+              rho_vec_[t][k] = rho_sparse_;
+          }
+        }
       }
       lag_mul_.back().resize(ndx);
       lag_mul_.back().setZero();
@@ -85,6 +102,19 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       y_.back().resize(nc); y_.back().setZero();
       rho_vec_.back().resize(nc);
 
+      for (std::size_t k = 0; k < nc; ++k){
+        auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+        double infty = std::numeric_limits<double>::infinity();
+        if (lb[k] == -infty && ub[k] == infty){
+            rho_vec_.back()[k] = rho_min_;
+        }
+        else if (lb[k] == ub[k]){
+            rho_vec_.back()[k] = 1e3 * rho_sparse_;
+        }
+        else if (lb[k] != ub[k]){
+            rho_vec_.back()[k] = rho_sparse_;
+        }
+      }
 
       const std::size_t n_alphas = 10;
       alphas_.resize(n_alphas);
@@ -104,6 +134,7 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
                        const std::size_t maxiter, const bool is_feasible, const double reginit) {
 
   START_PROFILER("SolverFADMM::solve");
+  std::cout << "FADMM SOLVE" << std::endl;
   if (problem_->is_updated()) {
     resizeData();
   }
@@ -120,116 +151,127 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
 
   
 
-  for (iter_ = 0; iter_ < maxiter; ++iter_) {
+  // for (iter_ = 0; iter_ < maxiter; ++iter_) {
 
 
-    was_feasible_ = false;
-    bool recalcDiff = true;
+  //   was_feasible_ = false;
+  //   bool recalcDiff = true;
 
-    while (true) {
-      try {
-        computeDirection(recalcDiff);
-      } 
-      catch (std::exception& e) {
-        recalcDiff = false;
-        increaseRegularization();
-        if (xreg_ == reg_max_) {
-          return false;
-        } else {
-          continue;
-        }
-      }
-      break;
-    }
+  //   while (true) {
+  //     try {
+  //       computeDirection(recalcDiff);
+  //     } 
+  //     catch (std::exception& e) {
+  //       recalcDiff = false;
+  //       increaseRegularization();
+  //       if (xreg_ == reg_max_) {
+  //         return false;
+  //       } else {
+  //         continue;
+  //       }
+  //     }
+  //     break;
+  //   }
 
-    // We need to recalculate the derivatives when the step length passes
-    for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
-      steplength_ = *it;
-      try {
-        merit_try_ = tryStep(steplength_);
-      } catch (std::exception& e) {
-        continue;
-      }
-      // Heuristic line search criteria
-      if(use_heuristic_line_search_){
-        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
-          setCandidate(xs_try_, us_try_, false);
-          recalcDiff = true;
-          break;
-        }
-      }
-      // Line-search criteria using merit function
-      else{
-        if (merit_ > merit_try_) {
-          setCandidate(xs_try_, us_try_, false);
-          recalcDiff = true;
-          break;
-        }
-      }
-    }
+  //   // We need to recalculate the derivatives when the step length passes
+  //   for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
+  //     steplength_ = *it;
+  //     try {
+  //       merit_try_ = tryStep(steplength_);
+  //     } catch (std::exception& e) {
+  //       continue;
+  //     }
+  //     // Heuristic line search criteria
+  //     if(use_heuristic_line_search_){
+  //       if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
+  //         setCandidate(xs_try_, us_try_, false);
+  //         recalcDiff = true;
+  //         break;
+  //       }
+  //     }
+  //     // Line-search criteria using merit function
+  //     else{
+  //       if (merit_ > merit_try_) {
+  //         setCandidate(xs_try_, us_try_, false);
+  //         recalcDiff = true;
+  //         break;
+  //       }
+  //     }
+  //   }
 
-    if (steplength_ > th_stepdec_) {
-      decreaseRegularization();
-    }
-    if (steplength_ <= th_stepinc_) {
-      increaseRegularization();
-      if (xreg_ == reg_max_) {
-        STOP_PROFILER("SolverFADMM::solve");
-        return false;
-      }
-    }
-    stoppingCriteria();
+  //   if (steplength_ > th_stepdec_) {
+  //     decreaseRegularization();
+  //   }
+  //   if (steplength_ <= th_stepinc_) {
+  //     increaseRegularization();
+  //     if (xreg_ == reg_max_) {
+  //       STOP_PROFILER("SolverFADMM::solve");
+  //       return false;
+  //     }
+  //   }
+  //   stoppingCriteria();
 
-    // const std::size_t n_callbacks = callbacks_.size();
-    // for (std::size_t c = 0; c < n_callbacks; ++c) {
-    //   CallbackAbstract& callback = *callbacks_[c];
-    //   callback(*this);
-    // }
-    if(with_callbacks_){
-      printCallbacks();
-    }
+  //   // const std::size_t n_callbacks = callbacks_.size();
+  //   // for (std::size_t c = 0; c < n_callbacks; ++c) {
+  //   //   CallbackAbstract& callback = *callbacks_[c];
+  //   //   callback(*this);
+  //   // }
+  //   if(with_callbacks_){
+  //     printCallbacks();
+  //   }
 
-    // KKT termination criteria
-    if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverFADMM::solve");
-        return true;
-      }
-    }  
-    // Old criteria
-    else {
-      if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
-        STOP_PROFILER("SolverFADMM::solve");
-        return true;
-      }
-    }
-  }
-  STOP_PROFILER("SolverFADMM::solve");
+  //   // KKT termination criteria
+  //   if(use_kkt_criteria_){
+  //     KKT_ = 0.;
+  //     checkKKTConditions();
+  //     if (KKT_  <= termination_tol_) {
+  //       STOP_PROFILER("SolverFADMM::solve");
+  //       return true;
+  //     }
+  //   }  
+  //   // Old criteria
+  //   else {
+  //     if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
+  //       STOP_PROFILER("SolverFADMM::solve");
+  //       return true;
+  //     }
+  //   }
+  // }
+  // STOP_PROFILER("SolverFADMM::solve");
   return false;
 }
 
 
-void SolverFADMM::calc(const bool recalc){
+void SolverFADMM::calculate(const bool recalc){
   std::cout << "FADMM CALC" << std::endl;
+  constraint_norm_ = 0;
   if (recalc){
     problem_->calc(xs_, us_);
-    cost_ = calcDiff();
+    cost_ = problem_->calcDiff(xs_, us_);
   }
   gap_norm_ = 0;
   const std::size_t T = problem_->get_T();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
   for (std::size_t t = 0; t < T; ++t) {
     gap_norm_ += fs_[t].lpNorm<1>();  
     const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
-    boost::shared_ptr<ConstraintModelAbstract>& cdata = cdatas_[t]; 
-    cmodel.calc(data, xs_, us_);
-    cmodel.calcDiff(data, xs_, us_);
-    
+    boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t]; 
+
+    cmodel->calc(cdata, datas[t], xs_[t], us_[t]);
+    cmodel->calcDiff(cdata, datas[t], xs_[t], us_[t]);
+    //TODO : implement the constraint norm here
+    // constraint_norm_ += std::max(cmodel->lb_ - cdata->c, 0)
+
   }
   gap_norm_ += fs_.back().lpNorm<1>();   
 
-  
+  const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
+  boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
+  const boost::shared_ptr<ActionDataAbstract>& d_T = problem_->get_terminalData();
+
+  // NOTE : this is a bug. us_.back should not be provided
+  cmodel->calc(cdata, d_T, xs_.back(), us_.back());
+  cmodel->calcDiff(cdata, d_T, xs_.back(), us_.back());
 
 }
 
@@ -237,15 +279,60 @@ void SolverFADMM::calc(const bool recalc){
 void SolverFADMM::computeDirection(const bool recalcDiff){
   START_PROFILER("SolverFADMM::computeDirection");
   if (recalcDiff) {
-    cost_ = calcDiff();
+    calculate(recalcDiff);
+  }
+
+  for (std::size_t iter = 1; iter < max_qp_iters_+1; ++iter){
+    backwardPass();
+    forwardPass();
+    update_lagrangian_parameters();
+    update_rho_sparse(iter);
+  
+    std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
+             << " rho " << rho_sparse_ << std::endl;
+  
+    if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
+      break;
+    }
+
   }
   
 
-  backwardPass();
-  forwardPass();
-
   STOP_PROFILER("SolverFADMM::computeDirection");
 
+}
+
+
+void SolverFADMM::update_rho_sparse(int iter){
+  double scale = (norm_primal_ * norm_dual_rel_)/ (norm_dual_ * norm_primal_rel_);
+  scale = std::sqrt(scale);
+  rho_estimate_sparse_ = scale * rho_sparse_;
+  rho_estimate_sparse_ = std::min(std::max(rho_estimate_sparse_, rho_min_), rho_max_);
+
+  if (iter % rho_update_interval_ == 0 && iter > 1){
+    if(rho_estimate_sparse_ > rho_sparse_ * adaptive_rho_tolerance_ || 
+            rho_estimate_sparse_ < rho_sparse_ / adaptive_rho_tolerance_){
+      const std::size_t T = problem_->get_T();
+      for (std::size_t t = 0; t < T+1; ++t){
+        const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
+        int nc = cmodel->get_nc();
+        auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+        double infty = std::numeric_limits<double>::infinity();
+
+        for (std::size_t k = 0; k < nc; ++k){
+          if (lb[k] == -infty && ub[k] == infty){
+              rho_vec_[t][k] = rho_min_;
+          }
+          else if (lb[k] == ub[k]){
+              rho_vec_[t][k] = 1e3 * rho_sparse_;
+          }
+          else if (lb[k] != ub[k]){
+              rho_vec_[t][k] = rho_sparse_;
+          }
+        }  
+      }
+    }
+  }
 }
 
 void SolverFADMM::checkKKTConditions(){
@@ -289,6 +376,7 @@ void SolverFADMM::forwardPass(){
 
 void SolverFADMM::backwardPass() {
   START_PROFILER("SolverFADMM::backwardPass");
+
   const boost::shared_ptr<ActionDataAbstract>& d_T = problem_->get_terminalData();
 
   const std::size_t ndx = problem_->get_ndx();
@@ -296,19 +384,23 @@ void SolverFADMM::backwardPass() {
   const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back();
 
   Vxx_.back() = d_T->Lxx + sigma_ * Eigen::MatrixXd::Identity(ndx, ndx);
-  Vx_.back() = d_T->Lx + sigma_ * dx_.back();
+  Vx_.back() = d_T->Lx - sigma_ * dx_.back();
+
   if (cmodel->get_nc()){ // constraint model
     // TODO : make sure this is not used later
-    auto rho_mat = rho_vec_.back() * Eigen::MatrixXd::Identity(cmodel->get_nc(), cmodel->get_nc());
+    auto rho_mat =  rho_vec_.back().matrix().asDiagonal();
     Vxx_.back().noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cx;
-    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_vec_.back() * z_.back());
+    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_mat * z_.back());
   }
   if (!std::isnan(xreg_)) {
     Vxx_.back().diagonal().array() += xreg_;
   }
   if (!is_feasible_) {
+    std::cout << "NOT FEASIBLE" << std::endl;
     Vx_.back().noalias() += Vxx_.back() * fs_.back();
   }
+
+
   const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
   const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
   for (int t = static_cast<int>(problem_->get_T()) - 1; t >= 0; --t) {
@@ -318,52 +410,67 @@ void SolverFADMM::backwardPass() {
     const Eigen::VectorXd& Vx_p = Vx_[t + 1];
     const std::size_t nu = m->get_nu();
     boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t];
-    const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back();
+    const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t];
     int nc = cmodel->get_nc();
-
     FxTVxx_p_.noalias() = d->Fx.transpose() * Vxx_p;
     START_PROFILER("SolverFADMM::Qx");
-    Qx_[t] = d->Lx + sigma_ * dx_[t];
+    Qx_[t] = d->Lx - sigma_ * dx_[t];
 
     if (t > 0 && nc != 0){ //constraint model
-      auto rho_mat = rho_vec_[t] * Eigen::MatrixXd::Identity(nc, nc);
+      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
       Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_mat * z_[t]);
     }
+
+    // std::cout << "Qx_ \n" << Qx_[t] << std::endl;
 
     Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
     STOP_PROFILER("SolverFADMM::Qx");
     START_PROFILER("SolverFADMM::Qxx");
     Qxx_[t] = d->Lxx + sigma_ * Eigen::MatrixXd::Identity(ndx, ndx);
     if (t > 0 && nc != 0){ //constraint model
-      auto rho_mat = rho_vec_[t] * Eigen::MatrixXd::Identity(nc, nc);
+      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
       Qxx_[t].noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cx;
     }
+
+    // std::cout << "Qxx \n" << Qxx_[t] << std::endl;
+
     Qxx_[t].noalias() += FxTVxx_p_ * d->Fx;
     STOP_PROFILER("SolverFADMM::Qxx");
     if (nu != 0) {
       FuTVxx_p_[t].noalias() = d->Fu.transpose() * Vxx_p;
       START_PROFILER("SolverFADMM::Qu");
-      Qu_[t] = d->Lu + sigma_ * du_[t];
+      Qu_[t] = d->Lu - sigma_ * du_[t];
       if (nc != 0){ //constraint model
-        auto rho_mat = rho_vec_[t] * Eigen::MatrixXd::Identity(nc, nc);
+        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
         Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_mat * z_[t]);
       }
+
+      // std::cout << "Qu \n" <<  Qu_[t] << std::endl;
+      std::cout << "Fu \n" <<  d->Fu << std::endl;
+
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
+      // std::cout << "h \n" <<  Qu_[t] << std::endl;
+
       STOP_PROFILER("SolverFADMM::Qu");
       START_PROFILER("SolverFADMM::Quu");
       Quu_[t] = d->Luu + sigma_ * Eigen::MatrixXd::Identity(nu, nu);
       if (nc != 0){ //constraint model
-        auto rho_mat = rho_vec_[t] * Eigen::MatrixXd::Identity(nc, nc);
+        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
         Quu_[t].noalias() += cdata->Cu.transpose() * rho_mat * cdata->Cu;
       }
+
+      // std::cout << "Quu_ \n" << Quu_[t] << std::endl;
+
       Quu_[t].noalias() += FuTVxx_p_[t] * d->Fu;
       STOP_PROFILER("SolverFADMM::Quu");
       START_PROFILER("SolverFADMM::Qxu");
       Qxu_[t] = d->Lxu; // TODO : check if this should also have added terms
       if (nc != 0){ //constraint model
-        auto rho_mat = rho_vec_[t] * Eigen::MatrixXd::Identity(nc, nc);
+        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
         Qxu_[t].noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cu;
       }
+
+
       Qxu_[t].noalias() += FxTVxx_p_ * d->Fu;
       STOP_PROFILER("SolverFADMM::Qxu");
 
@@ -372,7 +479,16 @@ void SolverFADMM::backwardPass() {
       }
     }
 
+
+    // std::cout << "h \n" << Qu_[t] << std::endl;
+    // std::cout << "H_ \n" << Quu_[t] << std::endl;
+    // std::cout << "G_ \n" << Qxu_[t] << std::endl;
+
     computeGains(t);
+
+    // std::cout << "K \n " << K_[t] << std::endl;
+    // std::cout << "k \n " << k_[t] << std::endl;
+
 
     Vx_[t] = Qx_[t];
     Vxx_[t] = Qxx_[t];
@@ -415,8 +531,8 @@ void SolverFADMM::update_lagrangian_parameters(){
     for (std::size_t t = 0; t < T; ++t) {
       
       const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
-      const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t]; 
-      
+      const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t];       
+
       int nc = cmodel->get_nc();
 
       if (nc == 0){
@@ -425,13 +541,14 @@ void SolverFADMM::update_lagrangian_parameters(){
         continue;
       }
 
-      z_prev_[t] = z_[t];
+      std::swap(z_prev_[t], z_[t]);
       auto Cdx_Cdu = cdata->Cx * dxtilde_[t] + cdata->Cu * dutilde_[t];
       z_relaxed_[t] = alpha_ * Cdx_Cdu + (1 - alpha_) * z_[t];
+
       for (std::size_t k = 0; k < nc; ++k){
         z_[t][k] = (z_relaxed_[t][k] + (y_[t][k]/rho_vec_[t][k]));
         auto ub = cmodel->get_ub(); auto lb = cmodel->get_lb(); 
-        z_[t][k] = std::max(std::min(z_[t][k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
+        z_[t][k] = std::min(std::max(z_[t][k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
       }
       
       y_[t] = y_[t] + rho_vec_[t] * (z_relaxed_[t] - z_[t]);
@@ -462,7 +579,7 @@ void SolverFADMM::update_lagrangian_parameters(){
     for (std::size_t k = 0; k < nc; ++k){
       z_.back()[k] = (z_relaxed_.back()[k] + (y_.back()[k]/rho_vec_.back()[k]));
       auto ub = cmodel->get_ub(); auto lb = cmodel->get_lb(); 
-      z_.back()[k] = std::max(std::min(z_.back()[k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
+      z_.back()[k] = std::min(std::max(z_.back()[k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
     }
     
     y_.back() = y_.back() + rho_vec_.back() * (z_relaxed_.back() - z_.back());

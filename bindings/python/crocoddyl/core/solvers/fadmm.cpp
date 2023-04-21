@@ -51,8 +51,22 @@ void exposeSolverFADMM() {
      //       "Update the expected improvement model\n\n")
      // .def("increaseRegularization", &solverFDDP::increaseRegularization, bp::args("self"),
      //       "Increase regularization")
+
+      .def("calc", &SolverFADMM::calculate, bp::args("self", "recalc"),
+           "")
+      .def("update_lagrangian_parameters", &SolverFADMM::update_lagrangian_parameters, bp::args("self"),
+           "")
+      .def("forwardPass", &SolverFADMM::forwardPass, bp::args("self"),
+           "")
+      .def("backwardPass", &SolverFADMM::backwardPass, bp::args("self"),
+           "")
+      .def("update_rho_sparse", &SolverFADMM::update_rho_sparse, bp::args("self", "iter"),
+           "")
+      .def("computeDirection", &SolverFADMM::computeDirection, bp::args("self", "recalcDiff"),
+           "")
+
       .def_readwrite("xs_try", &SolverFADMM::xs_try_, "xs try")
-      .def_readwrite("us_try", &SolverFADMM::us_try_, "us try")
+      .def_readwrite("us_try", &SolverFADMM::us_try_, "us try")  
       .def_readwrite("cost_try", &SolverFADMM::cost_try_, "cost try")
       .def_readwrite("fs_try", &SolverFADMM::fs_try_, "fs_try")
       .def_readwrite("lag_mul", &SolverFADMM::lag_mul_, "lagrange multipliers")
@@ -64,11 +78,22 @@ void exposeSolverFADMM() {
                     "Use the KKT residual condition as a termination criteria (default: True)")
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("xs", make_function(&SolverFADMM::get_xs, bp::return_value_policy<bp::copy_const_reference>()), "xs")
+      .add_property("us", make_function(&SolverFADMM::get_us, bp::return_value_policy<bp::copy_const_reference>()), "us")
+      .add_property("dx_tilde", make_function(&SolverFADMM::get_xs_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
+      .add_property("du_tilde", make_function(&SolverFADMM::get_us_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
+      
+      .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
+      .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
+
+      .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
+                    "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("use_heuristic_line_search", bp::make_function(&SolverFADMM::get_use_heuristic_line_search), bp::make_function(&SolverFADMM::set_use_heuristic_line_search),
                     "Use the heuristic line search criteria (default: False)")
       .add_property("termination_tolerance", bp::make_function(&SolverFADMM::get_termination_tolerance), bp::make_function(&SolverFADMM::set_termination_tolerance),
-                    "Termination criteria to exit the iteration (default: 1e-8)");
-
+                    "Termination criteria to exit the iteration (default: 1e-8)")
+      .add_property("max_qp_iters", bp::make_function(&SolverFADMM::get_max_qp_iters), bp::make_function(&SolverFADMM::set_max_qp_iters),
+                    "get and set max qp iters");
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverFADMM::get_th_acceptnegstep),
      //                bp::make_function(&SolverFADMM::set_th_acceptnegstep),
      //                "threshold for step acceptance in ascent direction");

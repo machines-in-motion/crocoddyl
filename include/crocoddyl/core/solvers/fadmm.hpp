@@ -94,7 +94,7 @@ class SolverFADMM : public SolverDDP {
 
   virtual double tryStep(const double stepLength);
 
-  virtual void calc(const bool recalc = true);
+  virtual void calculate(const bool recalc = true);
 
   // virtual void set_constraints(const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models){
   //   constraint_models_ = constraint_models;
@@ -108,6 +108,15 @@ class SolverFADMM : public SolverDDP {
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
   const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
   
+  const std::vector<Eigen::VectorXd>& get_xs() const { return xs_; };
+  const std::vector<Eigen::VectorXd>& get_us() const { return us_; };
+  
+  const std::vector<Eigen::VectorXd>& get_xs_tilde() const { return dxtilde_; };
+  const std::vector<Eigen::VectorXd>& get_us_tilde() const { return dutilde_; };
+
+  const std::vector<Eigen::VectorXd>& get_y() const { return y_; };
+  const std::vector<Eigen::VectorXd>& get_z() const { return z_; };
+
   const double get_gap_norm() const { return gap_norm_; };
   const double get_xgrad_norm() const { return x_grad_norm_; };
   const double get_ugrad_norm() const { return u_grad_norm_; };
@@ -116,6 +125,8 @@ class SolverFADMM : public SolverDDP {
   const bool get_use_heuristic_line_search() const { return use_heuristic_line_search_; };
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
+  const int get_max_qp_iters(){ return max_qp_iters_; };
+
 
   void printCallbacks();
   void setCallbacks(bool inCallbacks);
@@ -128,6 +139,9 @@ class SolverFADMM : public SolverDDP {
   void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
   
   void update_lagrangian_parameters();
+  void update_rho_sparse(int iter);
+
+  void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
 
  public:
   using SolverDDP::xs_try_;
@@ -157,6 +171,7 @@ class SolverFADMM : public SolverDDP {
   double x_grad_norm_ = 0;                                     //!< 1 norm of the delta x
   double u_grad_norm_ = 0;                                     //!< 1 norm of the delta u
   double gap_norm_ = 0;                                        //!< 1 norm of the gaps
+  double constraint_norm_ = 0;                                 //!< 1 norm of constraint violation
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
   double cost_ = 0;                                            //!< cost function
   double mu_ = 1e0;                                            //!< penalty no constraint violation
@@ -165,14 +180,22 @@ class SolverFADMM : public SolverDDP {
   bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
   double sigma_ = 1e-6; // proximal term
   double alpha_ = 1.6; // relaxed step size
+  int max_qp_iters_ = 10; // max qp iters
 
+  double rho_estimate_sparse_ = 0.0; // rho estimate
+  double rho_sparse_ = 1e-1; // rho
+  double rho_min_ = 1e-6; // rho min
+  double rho_max_ = 1e6; // rho max
+  int rho_update_interval_ = 25; // frequency of update of rho
+  double adaptive_rho_tolerance_ = 5; 
+  double eps_abs_ = 1e-3; // absolute termination criteria
+  double eps_rel_ = 1e-3; // relative termination criteria
 
-  double rho_estimate_sparse = 0.0; // rho estimate
-  double rho_sparse = 0.0; // rho
   double norm_primal_ = 0.0; // norm primal residual
   double norm_dual_ = 0.0; // norm dual residual
   double norm_primal_rel_ = 0.0; // norm primal relative residual
   double norm_dual_rel_ = 0.0; // norm dual relative residual
+
 
 
  private:

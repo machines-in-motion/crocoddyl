@@ -22,7 +22,7 @@ class ConstraintModelAbstract_wrap : public ConstraintModelAbstract, public bp::
                               const VectorXs& lb,const VectorXs& ub)
       : ConstraintModelAbstract(state, nc, nu, lb, ub), bp::wrapper<ConstraintModelAbstract>() {}
 
-  void calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const Eigen::Ref<const Eigen::VectorXd>& x,
+  void calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const Eigen::VectorXd>& x,
             const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
       throw_pretty("Invalid argument: "
@@ -35,7 +35,7 @@ class ConstraintModelAbstract_wrap : public ConstraintModelAbstract, public bp::
     return bp::call<void>(this->get_override("calc").ptr(), data, (Eigen::VectorXd)x, (Eigen::VectorXd)u);
   }
 
-  void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const Eigen::Ref<const Eigen::VectorXd>& x,
+  void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const Eigen::VectorXd>& x,
                 const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
       throw_pretty("Invalid argument: "
