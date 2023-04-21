@@ -52,7 +52,7 @@ void exposeSolverFADMM() {
      // .def("increaseRegularization", &solverFDDP::increaseRegularization, bp::args("self"),
      //       "Increase regularization")
 
-      .def("calc", &SolverFADMM::calculate, bp::args("self", "recalc"),
+      .def("calc", &SolverFADMM::calc, bp::args("self", "recalc"),
            "")
       .def("update_lagrangian_parameters", &SolverFADMM::update_lagrangian_parameters, bp::args("self"),
            "")

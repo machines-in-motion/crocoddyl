@@ -38,7 +38,9 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       du_.resize(T); dutilde_.resize(T);
       z_.resize(T+1); z_relaxed_.resize(T+1); y_.resize(T+1); rho_vec_.resize(T+1);
       z_prev_.resize(T+1);
-      
+      xs_try_.resize(T+1); us_try_.resize(T);
+
+
       if (cmodels_.size() != T+1){
         throw_pretty("Constraint Models size is wrong");
       };
@@ -48,6 +50,9 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
         const std::size_t nu = model->get_nu();
+        xs_try_[t] = model->get_state()->zero();
+        us_try_[t] = Eigen::VectorXd::Zero(nu);
+
         dx_[t].resize(ndx); du_[t].resize(nu);
         dxtilde_[t].resize(ndx); dutilde_[t].resize(nu);
         fs_try_[t].resize(ndx);
@@ -85,13 +90,16 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
           }
         }
       }
+
+      xs_try_.back() = problem_->get_terminalModel()->get_state()->zero();
+
       lag_mul_.back().resize(ndx);
       lag_mul_.back().setZero();
       dx_.back().resize(ndx); dxtilde_.back().resize(ndx);
       dx_.back().setZero(); dxtilde_.back().setZero();
       fs_try_.back().resize(ndx);
       fs_try_.back() = Eigen::VectorXd::Zero(ndx);
-      
+
       // Constraint Models
       const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
       cdatas_.back() = cmodel->createData();
@@ -149,107 +157,108 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
     ureg_ = reginit;
   }
 
-  
-
-  // for (iter_ = 0; iter_ < maxiter; ++iter_) {
+  for (iter_ = 0; iter_ < maxiter; ++iter_) {
 
 
-  //   was_feasible_ = false;
-  //   bool recalcDiff = true;
+    was_feasible_ = false;
+    bool recalcDiff = true;
 
-  //   while (true) {
-  //     try {
-  //       computeDirection(recalcDiff);
-  //     } 
-  //     catch (std::exception& e) {
-  //       recalcDiff = false;
-  //       increaseRegularization();
-  //       if (xreg_ == reg_max_) {
-  //         return false;
-  //       } else {
-  //         continue;
-  //       }
-  //     }
-  //     break;
-  //   }
+    while (true) {
+      try {
+        computeDirection(recalcDiff);
+      } 
+      catch (std::exception& e) {
+        recalcDiff = false;
+        increaseRegularization();
+        if (xreg_ == reg_max_) {
+          return false;
+        } else {
+          continue;
+        }
+      }
+      break;
+    }
+    if(with_callbacks_){
+      printCallbacks();
+    }
+    // We need to recalculate the derivatives when the step length passes
+    for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
+      steplength_ = *it;
 
-  //   // We need to recalculate the derivatives when the step length passes
-  //   for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
-  //     steplength_ = *it;
-  //     try {
-  //       merit_try_ = tryStep(steplength_);
-  //     } catch (std::exception& e) {
-  //       continue;
-  //     }
-  //     // Heuristic line search criteria
-  //     if(use_heuristic_line_search_){
-  //       if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
-  //         setCandidate(xs_try_, us_try_, false);
-  //         recalcDiff = true;
-  //         break;
-  //       }
-  //     }
-  //     // Line-search criteria using merit function
-  //     else{
-  //       if (merit_ > merit_try_) {
-  //         setCandidate(xs_try_, us_try_, false);
-  //         recalcDiff = true;
-  //         break;
-  //       }
-  //     }
-  //   }
+      try {
+        merit_try_ = tryStep(steplength_);
+      } catch (std::exception& e) {
+        continue;
+      }
+      // Heuristic line search criteria
+      if(use_heuristic_line_search_){
+        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ || constraint_norm_ > constraint_norm_try_) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
+      }
+      // Line-search criteria using merit function
+      else{
+        if (merit_ > merit_try_) {
+          setCandidate(xs_try_, us_try_, false);
+          recalcDiff = true;
+          break;
+        }
+      }
+    }
 
-  //   if (steplength_ > th_stepdec_) {
-  //     decreaseRegularization();
-  //   }
-  //   if (steplength_ <= th_stepinc_) {
-  //     increaseRegularization();
-  //     if (xreg_ == reg_max_) {
-  //       STOP_PROFILER("SolverFADMM::solve");
-  //       return false;
-  //     }
-  //   }
-  //   stoppingCriteria();
+    if (steplength_ > th_stepdec_) {
+      decreaseRegularization();
+    }
+    if (steplength_ <= th_stepinc_) {
+      increaseRegularization();
+      if (xreg_ == reg_max_) {
+        STOP_PROFILER("SolverFADMM::solve");
+        return false;
+      }
+    }
+    stoppingCriteria();
 
-  //   // const std::size_t n_callbacks = callbacks_.size();
-  //   // for (std::size_t c = 0; c < n_callbacks; ++c) {
-  //   //   CallbackAbstract& callback = *callbacks_[c];
-  //   //   callback(*this);
-  //   // }
-  //   if(with_callbacks_){
-  //     printCallbacks();
-  //   }
+    // const std::size_t n_callbacks = callbacks_.size();
+    // for (std::size_t c = 0; c < n_callbacks; ++c) {
+    //   CallbackAbstract& callback = *callbacks_[c];
+    //   callback(*this);
+    // }
 
-  //   // KKT termination criteria
-  //   if(use_kkt_criteria_){
-  //     KKT_ = 0.;
-  //     checkKKTConditions();
-  //     if (KKT_  <= termination_tol_) {
-  //       STOP_PROFILER("SolverFADMM::solve");
-  //       return true;
-  //     }
-  //   }  
-  //   // Old criteria
-  //   else {
-  //     if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
-  //       STOP_PROFILER("SolverFADMM::solve");
-  //       return true;
-  //     }
-  //   }
-  // }
-  // STOP_PROFILER("SolverFADMM::solve");
+
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverFADMM::solve");
+        return true;
+      }
+    }  
+    // Old criteria
+    else {
+      if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
+        STOP_PROFILER("SolverFADMM::solve");
+        return true;
+      }
+    }
+  }
+  STOP_PROFILER("SolverFADMM::solve");
   return false;
 }
 
 
-void SolverFADMM::calculate(const bool recalc){
+void SolverFADMM::calc(const bool recalc){
   std::cout << "FADMM CALC" << std::endl;
-  constraint_norm_ = 0;
   if (recalc){
     problem_->calc(xs_, us_);
     cost_ = problem_->calcDiff(xs_, us_);
   }
+
   gap_norm_ = 0;
+  constraint_norm_ = 0;
+  double infty = std::numeric_limits<double>::infinity();
 
   const std::size_t T = problem_->get_T();
   const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
@@ -265,20 +274,31 @@ void SolverFADMM::calculate(const bool recalc){
     m->get_state()->diff(xs_[t + 1], d->xnext, fs_[t + 1]);
 
     gap_norm_ += fs_[t+1].lpNorm<1>();  
+
     cmodel->calc(cdata, datas[t], xs_[t], us_[t]);
     cmodel->calcDiff(cdata, datas[t], xs_[t], us_[t]);
     //TODO : implement the constraint norm here
-    // constraint_norm_ += std::max(cmodel->lb_ - cdata->c, 0)
+    int nc = cmodel->get_nc();
+    auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+    constraint_norm_ += (lb - cdata->c).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+    constraint_norm_ += (cdata->c - ub).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
 
   }
 
   const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
   boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
   const boost::shared_ptr<ActionDataAbstract>& d_T = problem_->get_terminalData();
+  int nc = cmodel->get_nc();
+  auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
 
   // NOTE : this is a bug. us_.back should not be provided
   cmodel->calc(cdata, d_T, xs_.back(), us_.back());
   cmodel->calcDiff(cdata, d_T, xs_.back(), us_.back());
+
+  constraint_norm_ += (lb - cdata->c).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+  constraint_norm_ += (cdata->c - ub).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+
+  merit_ = cost_ + mu_*gap_norm_ + mu2_*constraint_norm_;
 
 }
 
@@ -286,7 +306,7 @@ void SolverFADMM::calculate(const bool recalc){
 void SolverFADMM::computeDirection(const bool recalcDiff){
   START_PROFILER("SolverFADMM::computeDirection");
   if (recalcDiff) {
-    calculate(recalcDiff);
+    calc(recalcDiff);
   }
 
   for (std::size_t iter = 1; iter < max_qp_iters_+1; ++iter){
@@ -295,20 +315,18 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     update_lagrangian_parameters();
     update_rho_sparse(iter);
   
-
     if (iter % rho_update_interval_ == 0 && iter > 1){
 
-      std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
-              << " rho " << rho_sparse_ << std::endl;
+      // std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
+      //         << " rho " << rho_sparse_ << std::endl;
     
       if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
+        qp_iters_ = iter;
         break;
       }
     }
-
   }
   
-
   STOP_PROFILER("SolverFADMM::computeDirection");
 
 }
@@ -323,6 +341,7 @@ void SolverFADMM::update_rho_sparse(int iter){
   if (iter % rho_update_interval_ == 0 && iter > 1){
     if(rho_estimate_sparse_ > rho_sparse_ * adaptive_rho_tolerance_ || 
             rho_estimate_sparse_ < rho_sparse_ / adaptive_rho_tolerance_){
+      rho_sparse_ = rho_estimate_sparse_;
       const std::size_t T = problem_->get_T();
       for (std::size_t t = 0; t < T+1; ++t){
         const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
@@ -371,7 +390,7 @@ void SolverFADMM::forwardPass(){
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
     for (std::size_t t = 0; t < T; ++t) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-      du_[t].noalias() = -K_[t]*(dxtilde_[t]) - k_[t];
+      dutilde_[t].noalias() = -K_[t]*(dxtilde_[t]) - k_[t];
       dxtilde_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dxtilde_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
       
       x_grad_norm_ += dxtilde_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
@@ -620,61 +639,78 @@ void SolverFADMM::update_lagrangian_parameters(){
 
 }
 
-
 double SolverFADMM::tryStep(const double steplength) {
     if (steplength > 1. || steplength < 0.) {
         throw_pretty("Invalid argument: "
                     << "invalid step length, value is between 0. to 1.");
     }
+
     START_PROFILER("SolverFADMM::tryStep");
     cost_try_ = 0.;
     merit_try_ = 0;
     gap_norm_try_ = 0;
-
+    constraint_norm_try_ = 0;
+    
     const std::size_t T = problem_->get_T();
     const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
 
     for (std::size_t t = 0; t < T; ++t) {
-        const boost::shared_ptr<ActionModelAbstract>& m = models[t];
-        const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-        const std::size_t nu = m->get_nu();
+      const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+      m->get_state()->integrate(xs_[t], steplength * dx_[t], xs_try_[t]); 
+      const std::size_t nu = m->get_nu();
 
-        // error = x + dx - f(x + dx, u + du)
-        // std::cout << dx_.size() << std::endl;
-        m->get_state()->integrate(xs_[t], steplength * dx_[t], xs_try_[t]); 
-        if (nu != 0) {
-            us_try_[t].noalias() = us_[t] + steplength * du_[t];
+      if (nu != 0) {
+        us_try_[t].noalias() = us_[t] + steplength * du_[t];
         }        
-        m->calc(d, xs_try_[t], us_try_[t]);        
-        cost_try_ += d->cost;
+      } 
 
-        if (t > 0){
-          const boost::shared_ptr<ActionDataAbstract>& d_prev = datas[t-1];
-          m->get_state()->diff(xs_try_[t], d_prev->xnext, fs_try_[t-1]);
-          gap_norm_try_ += fs_try_[t-1].lpNorm<1>(); 
-        } 
+    const boost::shared_ptr<ActionModelAbstract>& m_ter = problem_->get_terminalModel();
 
-        if (raiseIfNaN(cost_try_)) {
-          STOP_PROFILER("SolverFADMM::tryStep");
-          throw_pretty("step_error");
-        }   
+    m_ter->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
+
+    for (std::size_t t = 0; t < T; ++t) {
+      const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+      const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+      const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
+      boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t]; 
+
+      const std::size_t nu = m->get_nu();
+    
+      m->calc(d, xs_try_[t], us_try_[t]);        
+      cost_try_ += d->cost;      
+      m->get_state()->diff(xs_try_[t+1], d->xnext, fs_try_[t+1]);
+      gap_norm_try_ += fs_try_[t+1].lpNorm<1>(); 
+
+      cmodel->calc(cdata, d, xs_try_[t], xs_try_[t]);
+      int nc = cmodel->get_nc();
+      auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+      constraint_norm_try_ += (lb - cdata->c).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+      constraint_norm_try_ += (cdata->c - ub).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+
+      if (raiseIfNaN(cost_try_)) {
+        STOP_PROFILER("SolverFADMM::tryStep");
+        throw_pretty("step_error");
+      }   
     }
 
     // Terminal state update
-    const boost::shared_ptr<ActionModelAbstract>& m_ter = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
-    m_ter->get_state()->integrate(xs_.back(), steplength * dx_.back(), xs_try_.back()); 
+    const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
+    boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
+
     m_ter->calc(d_ter, xs_try_.back());
     cost_try_ += d_ter->cost;
 
-    const boost::shared_ptr<ActionModelAbstract>& m = models[T-1];
-    const boost::shared_ptr<ActionDataAbstract>& d = datas[T-1];
-    
-    m->get_state()->diff(xs_try_.back(), d->xnext, fs_try_[T-1]);
-    gap_norm_try_ += fs_try_[T-1].lpNorm<1>(); 
+    int nc = cmodel->get_nc();
+    auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+    // NOTE : this is a bug. us_.back should not be provided
+    cmodel->calc(cdata, d_ter, xs_try_.back(), us_try_.back());
 
-    merit_try_ = cost_try_ + mu_*gap_norm_try_;
+    constraint_norm_try_ += (lb - cdata->c).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+    constraint_norm_try_ += (cdata->c - ub).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
+
+    merit_try_ = cost_try_ + mu_*gap_norm_try_ + mu2_*constraint_norm_try_;
 
     if (raiseIfNaN(cost_try_)) {
         STOP_PROFILER("SolverFADMM::tryStep");
@@ -688,7 +724,7 @@ double SolverFADMM::tryStep(const double steplength) {
 
 void SolverFADMM::printCallbacks(){
   if (this->get_iter() % 10 == 0) {
-    std::cout << "iter     merit         cost         grad      step    ||gaps||        KKT";
+    std::cout << "iter     merit         cost         grad      step    ||gaps||       KKT";
     std::cout << std::endl;
   }
   std::cout << std::setw(4) << this->get_iter() << "  ";

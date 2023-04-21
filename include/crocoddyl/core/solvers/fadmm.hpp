@@ -94,7 +94,7 @@ class SolverFADMM : public SolverDDP {
 
   virtual double tryStep(const double stepLength);
 
-  virtual void calculate(const bool recalc = true);
+  virtual void calc(const bool recalc = true);
 
   // virtual void set_constraints(const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models){
   //   constraint_models_ = constraint_models;
@@ -129,6 +129,7 @@ class SolverFADMM : public SolverDDP {
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
   const int get_max_qp_iters(){ return max_qp_iters_; };
+  const int get_cost(){ return cost_;};
 
 
   void printCallbacks();
@@ -175,15 +176,18 @@ class SolverFADMM : public SolverDDP {
   double u_grad_norm_ = 0;                                     //!< 1 norm of the delta u
   double gap_norm_ = 0;                                        //!< 1 norm of the gaps
   double constraint_norm_ = 0;                                 //!< 1 norm of constraint violation
+  double constraint_norm_try_ = 0;                                 //!< 1 norm of constraint violation try
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
   double cost_ = 0;                                            //!< cost function
-  double mu_ = 1e0;                                            //!< penalty no constraint violation
+  double mu_ = 1e1;                                            //!< penalty no constraint violation
+  double mu2_ = 1e1;                                            //!< penalty no constraint violation
   double termination_tol_ = 1e-8;                              //!< Termination tolerance
   bool with_callbacks_ = false;                                //!< With callbacks
   bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
   double sigma_ = 1e-6; // proximal term
   double alpha_ = 1.6; // relaxed step size
   int max_qp_iters_ = 10; // max qp iters
+  int qp_iters_ = 0;
 
   double rho_estimate_sparse_ = 0.0; // rho estimate
   double rho_sparse_ = 1e-1; // rho
