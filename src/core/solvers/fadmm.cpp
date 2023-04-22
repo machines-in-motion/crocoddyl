@@ -142,7 +142,6 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
                        const std::size_t maxiter, const bool is_feasible, const double reginit) {
 
   START_PROFILER("SolverFADMM::solve");
-  std::cout << "FADMM SOLVE" << std::endl;
   if (problem_->is_updated()) {
     resizeData();
   }
@@ -178,9 +177,7 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
       }
       break;
     }
-    if(with_callbacks_){
-      printCallbacks();
-    }
+
     // We need to recalculate the derivatives when the step length passes
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
       steplength_ = *it;
@@ -218,15 +215,10 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
         return false;
       }
     }
-    stoppingCriteria();
 
-    // const std::size_t n_callbacks = callbacks_.size();
-    // for (std::size_t c = 0; c < n_callbacks; ++c) {
-    //   CallbackAbstract& callback = *callbacks_[c];
-    //   callback(*this);
-    // }
-
-
+    if(with_callbacks_){
+      printCallbacks();
+    }
     // KKT termination criteria
     if(use_kkt_criteria_){
       KKT_ = 0.;
@@ -250,7 +242,6 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
 
 
 void SolverFADMM::calc(const bool recalc){
-  std::cout << "FADMM CALC" << std::endl;
   if (recalc){
     problem_->calc(xs_, us_);
     cost_ = problem_->calcDiff(xs_, us_);
@@ -371,13 +362,17 @@ void SolverFADMM::checkKKTConditions(){
   const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
   for (std::size_t t = 0; t < T; ++t) {
     const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
-    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t];
+    if (t > 0){
+      KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1] + cdata->Cu.transpose() * y_[t]).lpNorm<Eigen::Infinity>());
+    }
+    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t] + cdata->Cx.transpose() * y_[t]).lpNorm<Eigen::Infinity>());
     fs_flat_.segment(t*ndx, ndx) = fs_[t];
   }
   fs_flat_.tail(ndx) = fs_.back();
   const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
-  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
+  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back() + cdata->Cx.transpose() * y_.back()).lpNorm<Eigen::Infinity>());
   KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
 }
 
@@ -390,12 +385,15 @@ void SolverFADMM::forwardPass(){
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
     for (std::size_t t = 0; t < T; ++t) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+      lag_mul_[t] = Vxx_[t] * dx_[t] + Vx_[t];
       dutilde_[t].noalias() = -K_[t]*(dxtilde_[t]) - k_[t];
       dxtilde_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dxtilde_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
       
       x_grad_norm_ += dxtilde_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
       u_grad_norm_ += dutilde_[t].lpNorm<1>();
     }
+    
+    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
 
     x_grad_norm_ += dxtilde_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
     x_grad_norm_ = x_grad_norm_/(T+1);
@@ -724,7 +722,7 @@ double SolverFADMM::tryStep(const double steplength) {
 
 void SolverFADMM::printCallbacks(){
   if (this->get_iter() % 10 == 0) {
-    std::cout << "iter     merit         cost         grad      step    ||gaps||       KKT";
+    std::cout << "iter     merit     cost     grad        step      ||gaps||      KKT       QP Iters";
     std::cout << std::endl;
   }
   std::cout << std::setw(4) << this->get_iter() << "  ";
@@ -733,7 +731,9 @@ void SolverFADMM::printCallbacks(){
   std::cout << this->get_xgrad_norm() + this->get_ugrad_norm() << "  ";
   std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
   std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm() << "  ";
-  std::cout << std::scientific << std::setprecision(5) << KKT_;
+  std::cout << std::scientific << std::setprecision(5) << KKT_ << "    ";
+  std::cout << std::scientific << std::setprecision(5) << qp_iters_;
+
   std::cout << std::endl;
   std::cout << std::flush;
 }

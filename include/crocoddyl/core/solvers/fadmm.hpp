@@ -178,7 +178,7 @@ class SolverFADMM : public SolverDDP {
   double constraint_norm_ = 0;                                 //!< 1 norm of constraint violation
   double constraint_norm_try_ = 0;                                 //!< 1 norm of constraint violation try
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
-  double cost_ = 0;                                            //!< cost function
+  // double cost_ = 0.0;                                            //!< cost function
   double mu_ = 1e1;                                            //!< penalty no constraint violation
   double mu2_ = 1e1;                                            //!< penalty no constraint violation
   double termination_tol_ = 1e-8;                              //!< Termination tolerance
