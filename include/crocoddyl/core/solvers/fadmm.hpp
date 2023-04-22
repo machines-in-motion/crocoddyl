@@ -86,6 +86,7 @@ class SolverFADMM : public SolverDDP {
 
   virtual void forwardPass();
   virtual void backwardPass();
+  virtual void backwardPass_without_rho_update();
 
   /**
    * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
@@ -129,7 +130,7 @@ class SolverFADMM : public SolverDDP {
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
   const int get_max_qp_iters(){ return max_qp_iters_; };
-  const int get_cost(){ return cost_;};
+  const double get_cost(){ return cost_;};
 
 
   void printCallbacks();
@@ -178,7 +179,7 @@ class SolverFADMM : public SolverDDP {
   double constraint_norm_ = 0;                                 //!< 1 norm of constraint violation
   double constraint_norm_try_ = 0;                                 //!< 1 norm of constraint violation try
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
-  // double cost_ = 0.0;                                            //!< cost function
+  double cost_ = 0.0;                                            //!< cost function
   double mu_ = 1e1;                                            //!< penalty no constraint violation
   double mu2_ = 1e1;                                            //!< penalty no constraint violation
   double termination_tol_ = 1e-8;                              //!< Termination tolerance
@@ -186,7 +187,7 @@ class SolverFADMM : public SolverDDP {
   bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
   double sigma_ = 1e-6; // proximal term
   double alpha_ = 1.6; // relaxed step size
-  int max_qp_iters_ = 10; // max qp iters
+  int max_qp_iters_ = 1000; // max qp iters
   int qp_iters_ = 0;
 
   double rho_estimate_sparse_ = 0.0; // rho estimate

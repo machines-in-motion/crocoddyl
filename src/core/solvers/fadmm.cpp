@@ -177,6 +177,9 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
       }
       break;
     }
+    if(with_callbacks_){
+      printCallbacks();
+    }
 
     // We need to recalculate the derivatives when the step length passes
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
@@ -215,14 +218,8 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
         return false;
       }
     }
-
-    if(with_callbacks_){
-      printCallbacks();
-    }
     // KKT termination criteria
     if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
       if (KKT_  <= termination_tol_) {
         STOP_PROFILER("SolverFADMM::solve");
         return true;
@@ -299,9 +296,18 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
   if (recalcDiff) {
     calc(recalcDiff);
   }
-
+  if(use_kkt_criteria_){
+    KKT_ = 0.;
+    checkKKTConditions();
+  }
+  bool converged_ = false;
   for (std::size_t iter = 1; iter < max_qp_iters_+1; ++iter){
-    backwardPass();
+    if (iter % rho_update_interval_ == 1 || iter == 1){
+      backwardPass();
+    }
+    else{
+      backwardPass_without_rho_update();
+    }
     forwardPass();
     update_lagrangian_parameters();
     update_rho_sparse(iter);
@@ -313,11 +319,16 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     
       if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
         qp_iters_ = iter;
+        converged_ = true;
         break;
       }
     }
   }
-  
+
+  if (!converged_){
+    qp_iters_ = max_qp_iters_;
+  }
+
   STOP_PROFILER("SolverFADMM::computeDirection");
 
 }
@@ -423,10 +434,6 @@ void SolverFADMM::backwardPass() {
   if (!std::isnan(xreg_)) {
     Vxx_.back().diagonal().array() += xreg_;
   }
-  // std::cout << "Vx \n" << Vx_.back() << std::endl;
-  // std::cout << "Vxx \n" << Vxx_.back() << std::endl;
-  // std::cout << "gap \n" << fs_.back() << std::endl;
-  
 
   if (!is_feasible_) {
     Vx_.back().noalias() += Vxx_.back() * fs_.back();
@@ -454,8 +461,6 @@ void SolverFADMM::backwardPass() {
       Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_mat * z_[t]);
     }
 
-    // std::cout << "Qx_ \n" << Qx_[t] << std::endl;
-
     Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
     STOP_PROFILER("SolverFADMM::Qx");
     START_PROFILER("SolverFADMM::Qxx");
@@ -464,8 +469,6 @@ void SolverFADMM::backwardPass() {
       auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
       Qxx_[t].noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cx;
     }
-
-    // std::cout << "Qxx \n" << Qxx_[t] << std::endl;
 
     Qxx_[t].noalias() += FxTVxx_p_ * d->Fx;
     STOP_PROFILER("SolverFADMM::Qxx");
@@ -478,11 +481,7 @@ void SolverFADMM::backwardPass() {
         Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_mat * z_[t]);
       }
 
-      // std::cout << "Qu \n" <<  Qu_[t] << std::endl;
-      // std::cout << "Fu \n" <<  d->Fu << std::endl;
-
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
-      // std::cout << "h \n" <<  Qu_[t] << std::endl;
 
       STOP_PROFILER("SolverFADMM::Qu");
       START_PROFILER("SolverFADMM::Quu");
@@ -491,8 +490,6 @@ void SolverFADMM::backwardPass() {
         auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
         Quu_[t].noalias() += cdata->Cu.transpose() * rho_mat * cdata->Cu;
       }
-
-      // std::cout << "Quu_ \n" << Quu_[t] << std::endl;
 
       Quu_[t].noalias() += FuTVxx_p_[t] * d->Fu;
       STOP_PROFILER("SolverFADMM::Quu");
@@ -512,16 +509,7 @@ void SolverFADMM::backwardPass() {
       }
     }
 
-
-    // std::cout << "h \n" << Qu_[t] << std::endl;
-    // std::cout << "H_ \n" << Quu_[t] << std::endl;
-    // std::cout << "G_ \n" << Qxu_[t] << std::endl;
-
     computeGains(t);
-
-    // std::cout << "K \n " << K_[t] << std::endl;
-    // std::cout << "k \n " << k_[t] << std::endl;
-
 
     Vx_[t] = Qx_[t];
     Vxx_[t] = Qxx_[t];
@@ -554,6 +542,85 @@ void SolverFADMM::backwardPass() {
   STOP_PROFILER("SolverFADMM::backwardPass");
 }
 
+void SolverFADMM::backwardPass_without_rho_update() {
+  START_PROFILER("SolverFADMM::backwardPass_without_rho_update");
+
+  const boost::shared_ptr<ActionDataAbstract>& d_T = problem_->get_terminalData();
+
+  const std::size_t ndx = problem_->get_ndx();
+  boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
+  const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back();
+
+  Vx_.back() = d_T->Lx - sigma_ * dx_.back();
+
+  if (cmodel->get_nc()){ // constraint model
+    // TODO : make sure this is not used later
+    auto rho_mat =  rho_vec_.back().matrix().asDiagonal();
+    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_mat * z_.back());
+  }
+
+  if (!is_feasible_) {
+    Vx_.back().noalias() += Vxx_.back() * fs_.back();
+  }
+
+  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+  for (int t = static_cast<int>(problem_->get_T()) - 1; t >= 0; --t) {
+    const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+    const Eigen::VectorXd& Vx_p = Vx_[t + 1];
+    const std::size_t nu = m->get_nu();
+    boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_[t];
+    const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t];
+    int nc = cmodel->get_nc();
+    START_PROFILER("SolverFADMM::Qx");
+    Qx_[t] = d->Lx - sigma_ * dx_[t];
+
+    if (t > 0 && nc != 0){ //constraint model
+      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
+      Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_mat * z_[t]);
+    }
+
+    Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
+
+    STOP_PROFILER("SolverFADMM::Qxx");
+    if (nu != 0) {
+      START_PROFILER("SolverFADMM::Qu");
+      Qu_[t] = d->Lu - sigma_ * du_[t];
+      if (nc != 0){ //constraint model
+        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
+        Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_mat * z_[t]);
+      }
+
+      Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
+
+    }
+
+    // computing gains efficiently
+    k_[t] = Qu_[t];
+    Quu_llt_[t].solveInPlace(k_[t]);
+
+    Vx_[t] = Qx_[t];
+    if (nu != 0) {
+      Vx_[t].noalias() -= K_[t].transpose() * Qu_[t];
+    }
+
+    // Compute and store the Vx gradient at end of the interval (rollout state)
+    if (!is_feasible_) {
+      Vx_[t].noalias() += Vxx_[t] * fs_[t];
+    }
+
+    if (raiseIfNaN(Vx_[t].lpNorm<Eigen::Infinity>())) {
+      throw_pretty("backward_error");
+    }
+    if (raiseIfNaN(Vxx_[t].lpNorm<Eigen::Infinity>())) {
+      throw_pretty("backward_error");
+    }
+  }
+  STOP_PROFILER("SolverFADMM::backwardPass_without_rho_update");
+}
+
+
 void SolverFADMM::update_lagrangian_parameters(){
     norm_primal_ = -1* std::numeric_limits<double>::infinity();
     norm_dual_ = -1* std::numeric_limits<double>::infinity();
@@ -578,19 +645,11 @@ void SolverFADMM::update_lagrangian_parameters(){
       auto Cdx_Cdu = cdata->Cx * dxtilde_[t] + cdata->Cu * dutilde_[t];
       z_relaxed_[t] = alpha_ * Cdx_Cdu + (1 - alpha_) * z_[t];
 
-      // std::cout << "z_relaxed_[t] \n" << z_relaxed_[t] << std::endl;
-
       const auto ub = cmodel->get_ub(); const auto lb = cmodel->get_lb();
-      // std::cout << "UB \n" << ub << std::endl; 
-      // std::cout << "lB \n" << lb << std::endl; 
-      // std::cout << "c \n" << cdata->c << std::endl; 
-      // std::cout << "rho \n" << rho_vec_[t] << std::endl; 
-
       for (std::size_t k = 0; k < nc; ++k){ 
         z_[t][k] = (z_relaxed_[t][k] + (y_[t][k]/rho_vec_[t][k]));
         z_[t][k] = std::min(std::max(z_[t][k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
       }
-      // std::cout << "z_[t] \n" << z_[t] << std::endl;
 
       y_[t] = y_[t] + rho_vec_[t].cwiseProduct(z_relaxed_[t] - z_[t]);
       dx_[t] = dxtilde_[t]; du_[t] = dutilde_[t];
@@ -722,7 +781,7 @@ double SolverFADMM::tryStep(const double steplength) {
 
 void SolverFADMM::printCallbacks(){
   if (this->get_iter() % 10 == 0) {
-    std::cout << "iter     merit     cost     grad        step      ||gaps||      KKT       QP Iters";
+    std::cout << "iter     merit        cost         grad       step     ||gaps||       KKT       Constraint Norms    QP Iters";
     std::cout << std::endl;
   }
   std::cout << std::setw(4) << this->get_iter() << "  ";
@@ -732,6 +791,7 @@ void SolverFADMM::printCallbacks(){
   std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
   std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm() << "  ";
   std::cout << std::scientific << std::setprecision(5) << KKT_ << "    ";
+  std::cout << std::scientific << std::setprecision(5) << constraint_norm_ << "         ";
   std::cout << std::scientific << std::setprecision(5) << qp_iters_;
 
   std::cout << std::endl;
