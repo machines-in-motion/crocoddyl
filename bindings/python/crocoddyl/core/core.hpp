@@ -71,7 +71,6 @@ void exposeCallbacks();
 // void exposeCallbacksGNMS();
 void exposeStopWatch();
 void exposeStateConstraint();
-
 void exposeCore();
 
 }  // namespace python

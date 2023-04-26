@@ -23,13 +23,6 @@ void exposeConstraintAbstract() {
   StdVectorPythonVisitor<ConstraintDataPtr, std::allocator<ConstraintDataPtr>, true>::expose("StdVec_ConstraintData");
 
   bp::register_ptr_to_python<boost::shared_ptr<ConstraintModelAbstract> >();
-
-  bp::enum_<ConstraintType>("ConstraintType")
-      .value("Inequality", Inequality)
-      .value("Equality", Equality)
-      .value("Both", Both)
-      .export_values();
-
   bp::class_<ConstraintModelAbstract_wrap, boost::noncopyable>(
       "ConstraintModelAbstract",
       "Abstract multibody constraint models.\n\n"

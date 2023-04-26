@@ -19,8 +19,6 @@
 
 namespace crocoddyl {
 
-enum ConstraintType { Inequality = 0, Equality, Both };
-
 /**
  * @brief Abstract class for constraint models
  *
@@ -84,7 +82,7 @@ class ConstraintModelAbstractTpl {
    * @param[in] x     State point \f$\mathbf{x}\in\mathbb{R}^{ndx}\f$
    * @param[in] u     Control input \f$\mathbf{u}\in\mathbb{R}^{nu}\f$
    */
-  virtual void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
+   virtual void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
                         const Eigen::Ref<const VectorXs>& u) = 0;
 
 
@@ -143,8 +141,8 @@ class ConstraintModelAbstractTpl {
   /**
    * @brief Print information on the constraint model
    */
-  template <class Scalar>
-  friend std::ostream& operator<<(std::ostream& os, const CostModelAbstractTpl<Scalar>& model);
+  // template <class Scalar>
+  // friend std::ostream& operator<<(std::ostream& os, const CostModelAbstractTpl<Scalar>& model);
 
   /**
    * @brief Print relevant information of the constraint model
@@ -186,7 +184,6 @@ struct ConstraintDataAbstractTpl {
   }
   virtual ~ConstraintDataAbstractTpl() {}
 
-  DataCollectorAbstract* shared;                     //!< Shared data
   boost::shared_ptr<ResidualDataAbstract> residual;  //!< Residual data
   VectorXs c;                                        //!< Inequality constraint values
   MatrixXs Cx;                                       //!< Jacobian of the inequality constraint
