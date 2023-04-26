@@ -64,9 +64,11 @@ void exposeCore() {
   exposeSolverBoxFDDP();
   exposeSolverGNMS();
   exposeSolverFADMM();
+  exposeSolverPROXQP();
   exposeCallbacks();
   // exposeCallbacksGNMS();
   exposeStopWatch();
+  exposeStateConstraint();
 }
 
 }  // namespace python

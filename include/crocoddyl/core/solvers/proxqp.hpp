@@ -6,8 +6,8 @@
 // All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef CROCODDYL_CORE_SOLVERS_FADMM_HPP_
-#define CROCODDYL_CORE_SOLVERS_FADMM_HPP_
+#ifndef CROCODDYL_CORE_SOLVERS_PROXQP_HPP_
+#define CROCODDYL_CORE_SOLVERS_PROXQP_HPP_
 
 #include <Eigen/Cholesky>
 #include <vector>
@@ -15,13 +15,17 @@
 #include "crocoddyl/core/solvers/ddp.hpp"
 #include "crocoddyl/core/constraint-base.hpp"
 
+#include <proxsuite/proxqp/dense/dense.hpp>
+#include <proxsuite/proxqp/dense/dense.hpp>
+#include <proxsuite/proxqp/sparse/sparse.hpp>
+
 
 namespace crocoddyl {
 
 /**
- * @brief fadmm solver
+ * @brief PROXQP solver
  *
- * The fadmm solver computes an optimal trajectory and control commands by iterates running `backwardPass()` and
+ * The PROXQP solver computes an optimal trajectory and control commands by iterates running `backwardPass()` and
  * `forwardPass()`. The backward pass accepts infeasible guess as described in the `SolverDDP::backwardPass()`.
  * Additionally, the forward pass handles infeasibility simulations that resembles the numerical behaviour of
  * a multiple-shooting formulation, i.e.:
@@ -49,17 +53,17 @@ namespace crocoddyl {
  *
  * \sa `SolverDDP()`, `backwardPass()`, `forwardPass()`, `expectedImprovement()` and `updateExpectedImprovement()`
  */
-class SolverFADMM : public SolverDDP {
+class SolverPROXQP : public SolverDDP {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   /**
-   * @brief Initialize the fadmm solver
+   * @brief Initialize the PROXQP solver
    *
    * @param[in] problem  shooting problem
    */
-  explicit SolverFADMM(boost::shared_ptr<ShootingProblem> problem, const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models);
-  virtual ~SolverFADMM();
+  explicit SolverPROXQP(boost::shared_ptr<ShootingProblem> problem, const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models);
+  virtual ~SolverPROXQP();
 
   virtual bool solve(const std::vector<Eigen::VectorXd>& init_xs = DEFAULT_VECTOR,
                      const std::vector<Eigen::VectorXd>& init_us = DEFAULT_VECTOR, const std::size_t maxiter = 100,
@@ -84,10 +88,6 @@ class SolverFADMM : public SolverDDP {
    */
   void updateExpectedImprovement();
 
-  virtual void forwardPass();
-  virtual void backwardPass();
-  virtual void backwardPass_without_rho_update();
-
   /**
    * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
    */
@@ -111,15 +111,15 @@ class SolverFADMM : public SolverDDP {
   
   const std::vector<Eigen::VectorXd>& get_xs() const { return xs_; };
   const std::vector<Eigen::VectorXd>& get_us() const { return us_; };
-  
-  const std::vector<Eigen::VectorXd>& get_xs_tilde() const { return dxtilde_; };
-  const std::vector<Eigen::VectorXd>& get_us_tilde() const { return dutilde_; };
+
+  const std::vector<Eigen::VectorXd>& get_fs() const { return fs_; };
+
+
+  const std::vector<Eigen::VectorXd>& get_dx() const { return dx_; };
+  const std::vector<Eigen::VectorXd>& get_du() const { return du_; };
 
   const std::vector<Eigen::VectorXd>& get_y() const { return y_; };
-  const std::vector<Eigen::VectorXd>& get_z() const { return z_; };
-
-  const std::vector<Eigen::VectorXd>& get_rho_vec() const { return rho_vec_; };
-
+  const std::vector<Eigen::VectorXd>& get_lag_mul() const { return lag_mul_; };
 
   const double get_gap_norm() const { return gap_norm_; };
   const double get_xgrad_norm() const { return x_grad_norm_; };
@@ -132,33 +132,23 @@ class SolverFADMM : public SolverDDP {
   const int get_max_qp_iters(){ return max_qp_iters_; };
   const double get_cost(){ return cost_;};
 
-  const int get_rho_update_interval() { return rho_update_interval_; };
-  const int get_adaptive_rho_tolerance() { return adaptive_rho_tolerance_; };
-  const double get_alpha() { return alpha_; };
-  const double get_sigma() { return sigma_; };
-
-
   void printCallbacks();
   void setCallbacks(bool inCallbacks);
   const bool getCallbacks();
-
-
-
-  void set_rho_update_interval(int interval) { rho_update_interval_ = interval; };
-  void set_adaptive_rho_tolerance(int tolerance) { adaptive_rho_tolerance_ = tolerance; };
-
-  void set_mu(double mu) { mu_ = mu; };
-  void set_alpha(double alpha) { alpha_ = alpha; };
-  void set_sigma(double sigma) { sigma_ = sigma; };
 
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
   void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
   
-  void update_lagrangian_parameters();
-  void update_rho_sparse(int iter);
-
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
+
+  const Eigen::MatrixXd& get_P() const {return P_;};
+  const Eigen::MatrixXd& get_A() const {return A_;};
+  const Eigen::MatrixXd& get_C() const {return C_;};
+  const Eigen::VectorXd& get_q() const {return q_;};
+  const Eigen::VectorXd& get_b() const {return b_;};
+  const Eigen::VectorXd& get_l() const {return l_;};
+  const Eigen::VectorXd& get_u() const {return u_;};
 
  public:
   using SolverDDP::xs_try_;
@@ -168,19 +158,11 @@ class SolverFADMM : public SolverDDP {
   std::vector<Eigen::VectorXd> dx_;                                    //!< the descent direction for x
   std::vector<Eigen::VectorXd> du_;                                    //!< the descent direction for u
   std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
+  std::vector<Eigen::VectorXd> y_;                                    //!< lagrangian dual variable
+  
   Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
   double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
   bool use_heuristic_line_search_ = false;                              //!< Use heuristic line search
-
-  std::vector<Eigen::VectorXd> dxtilde_;                                    //!< the descent direction for x
-  std::vector<Eigen::VectorXd> dutilde_;                                    //!< the descent direction for u
-
-  // ADMM parameters
-  std::vector<Eigen::VectorXd> y_;                                    //!< lagrangian dual variable
-  std::vector<Eigen::VectorXd> z_;                                    //!< second admm variable
-  std::vector<Eigen::VectorXd> z_prev_;                               //!< second admm variable previous
-  std::vector<Eigen::VectorXd> z_relaxed_;                           //!< relaxed step of z
-  std::vector<Eigen::VectorXd> rho_vec_;                              //!< rho vector
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -202,14 +184,7 @@ class SolverFADMM : public SolverDDP {
   int max_qp_iters_ = 1000; // max qp iters
   int qp_iters_ = 0;
 
-  double rho_estimate_sparse_ = 0.0; // rho estimate
-  double rho_sparse_ = 1e-1; // rho
-  double rho_min_ = 1e-6; // rho min
-  double rho_max_ = 1e6; // rho max
-  int rho_update_interval_ = 25; // frequency of update of rho
-  double adaptive_rho_tolerance_ = 5; 
   double eps_abs_ = 1e-4; // absolute termination criteria
-  double eps_rel_ = 1e-3; // relative termination criteria
 
   double norm_primal_ = 0.0; // norm primal residual
   double norm_dual_ = 0.0; // norm dual residual
@@ -217,7 +192,24 @@ class SolverFADMM : public SolverDDP {
   double norm_dual_rel_ = 0.0; // norm dual relative residual
 
 
+  // PROX QP STUFF
+  Eigen::MatrixXd P_;
+  Eigen::MatrixXd A_;
+  Eigen::MatrixXd C_;
 
+  Eigen::SparseMatrix<double> Psp_;
+  Eigen::SparseMatrix<double> Asp_;
+  Eigen::SparseMatrix<double> Csp_;
+
+  Eigen::VectorXd q_;
+  Eigen::VectorXd b_;
+  Eigen::VectorXd l_;
+  Eigen::VectorXd u_;
+
+  int n_in = 0;
+  int n_eq = 0;
+  int n_vars = 0;
+  
  private:
   double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction
   const std::vector<boost::shared_ptr<ConstraintModelAbstract>> cmodels_;
@@ -229,4 +221,4 @@ class SolverFADMM : public SolverDDP {
 
 }  // namespace crocoddyl
 
-#endif  // CROCODDYL_CORE_SOLVERS_FADMM_HPP_
+#endif  // CROCODDYL_CORE_SOLVERS_PROXQP_HPP_

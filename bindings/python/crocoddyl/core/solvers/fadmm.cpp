@@ -86,17 +86,27 @@ void exposeSolverFADMM() {
       .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
       .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
 
+
       .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
 
 
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("sigma", bp::make_function(&SolverFADMM::get_sigma), bp::make_function(&SolverFADMM::set_sigma),
+                    "get and set sigma")
+      .add_property("alpha", bp::make_function(&SolverFADMM::get_alpha), bp::make_function(&SolverFADMM::set_alpha),
+                    "get and set alpha (relaxed update)")
+
       .add_property("use_heuristic_line_search", bp::make_function(&SolverFADMM::get_use_heuristic_line_search), bp::make_function(&SolverFADMM::set_use_heuristic_line_search),
                     "Use the heuristic line search criteria (default: False)")
       .add_property("termination_tolerance", bp::make_function(&SolverFADMM::get_termination_tolerance), bp::make_function(&SolverFADMM::set_termination_tolerance),
                     "Termination criteria to exit the iteration (default: 1e-8)")
       .add_property("max_qp_iters", bp::make_function(&SolverFADMM::get_max_qp_iters), bp::make_function(&SolverFADMM::set_max_qp_iters),
-                    "get and set max qp iters");
+                    "get and set max qp iters")
+      .add_property("rho_update_interval", bp::make_function(&SolverFADMM::get_rho_update_interval), bp::make_function(&SolverFADMM::set_rho_update_interval),
+                    "get and set rho update interval")
+      .add_property("adaptive_rho_tolerance", bp::make_function(&SolverFADMM::get_adaptive_rho_tolerance), bp::make_function(&SolverFADMM::set_adaptive_rho_tolerance),
+                    "get and set adaptive rho tolerance");
      //  .add_property("th_acceptNegStep", bp::make_function(&SolverFADMM::get_th_acceptnegstep),
      //                bp::make_function(&SolverFADMM::set_th_acceptnegstep),
      //                "threshold for step acceptance in ascent direction");
