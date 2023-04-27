@@ -13,34 +13,34 @@ StateConstraintModelTpl<Scalar>::StateConstraintModelTpl(boost::shared_ptr<typen
         // Ix = MatrixXs::Identity(nc, nc);
     }
 
-// template <typename Scalar>
-// StateConstraintModelTpl<Scalar>::~StateConstraintModelTpl() {}
+template <typename Scalar>
+StateConstraintModelTpl<Scalar>::~StateConstraintModelTpl() {}
 
-// template <typename Scalar>
-// void StateConstraintModelTpl<Scalar>::calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
-//                     const Eigen::Ref<const VectorXs>& u){
+template <typename Scalar>
+void StateConstraintModelTpl<Scalar>::calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
+                    const Eigen::Ref<const VectorXs>& u){
                     
-//         data->c = x;
+        data->c = x;
                     
-//     }
+    }
 
-// template <typename Scalar>
-// void StateConstraintModelTpl<Scalar>::calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
-//                     const Eigen::Ref<const VectorXs>& u){
+template <typename Scalar>
+void StateConstraintModelTpl<Scalar>::calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
+                    const Eigen::Ref<const VectorXs>& u){
 
-//         data->Cx = Ix;
-//         data->Cu = Iu;
+        data->Cx = Ix;
+        data->Cu = Iu;
                     
-//     }
+    }
 
-// template <typename Scalar>
-// boost::shared_ptr<ConstraintDataAbstractTpl<Scalar>> StateConstraintModelTpl<Scalar>::createData() {
-//   return boost::allocate_shared<ConstraintDataAbstract>(Eigen::aligned_allocator<ConstraintDataAbstract>(), this);
-// }
+template <typename Scalar>
+boost::shared_ptr<ConstraintDataAbstractTpl<Scalar>> StateConstraintModelTpl<Scalar>::createData() {
+  return boost::allocate_shared<Data>(Eigen::aligned_allocator<Data>(), this);
+}
 
-// template <typename Scalar>
-// void StateConstraintModelTpl<Scalar>::print(std::ostream& os) const {
-//   os << "ConstraintModelResidual {""}";
-// }
+template <typename Scalar>
+void StateConstraintModelTpl<Scalar>::print(std::ostream& os) const {
+  os << "ConstraintModelResidual {""}";
+}
 
 }

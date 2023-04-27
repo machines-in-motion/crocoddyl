@@ -39,16 +39,17 @@ class StateConstraintModelTpl : public ConstraintModelAbstractTpl<_Scalar>{
         typedef MathBaseTpl<Scalar> MathBase;
         typedef ConstraintModelAbstractTpl<Scalar> Base;
         typedef StateConstraintDataTpl<Scalar> Data;
+        typedef ConstraintDataAbstractTpl<Scalar> ConstraintDataAbstract;
         typedef typename MathBase::VectorXs VectorXs;
         typedef typename MathBase::MatrixXs MatrixXs;
 
     StateConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu, 
                                                                     const VectorXs& lb, const VectorXs& ub);
 
-    // virtual ~StateConstraintModelTpl();
+    virtual ~StateConstraintModelTpl();
     
-    // void calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
-    //                 const Eigen::Ref<const VectorXs>& u) = 0;
+    virtual void calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
+                    const Eigen::Ref<const VectorXs>& u);
 
 //   /**
 //    * @brief Compute the Jacobian of the constraint
@@ -60,16 +61,16 @@ class StateConstraintModelTpl : public ConstraintModelAbstractTpl<_Scalar>{
 //    * @param[in] x     State point \f$\mathbf{x}\in\mathbb{R}^{ndx}\f$
 //    * @param[in] u     Control input \f$\mathbf{u}\in\mathbb{R}^{nu}\f$
 //    */
-    // virtual void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
-    //                     const Eigen::Ref<const VectorXs>& u) = 0;
+    virtual void calcDiff(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const VectorXs>& x,
+                        const Eigen::Ref<const VectorXs>& u);
   
-    // virtual boost::shared_ptr<ConstraintDataAbstract> createData();
-    // virtual void print(std::ostream& os) const;
+    virtual boost::shared_ptr<ConstraintDataAbstract> createData();
+    virtual void print(std::ostream& os) const;
 
 
-    // private:
-    //     MatrixXs Ix;                
-    //     MatrixXs Iu;               
+    private:
+        MatrixXs Ix;                
+        MatrixXs Iu;               
 
 
 };
