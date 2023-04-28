@@ -11,6 +11,7 @@
 
 #include <Eigen/Cholesky>
 #include <vector>
+#include <boost/circular_buffer.hpp>
 
 #include "crocoddyl/core/solvers/ddp.hpp"
 #include "crocoddyl/core/constraint-base.hpp"
@@ -129,12 +130,13 @@ class SolverFADMM : public SolverDDP {
   const double get_ugrad_norm() const { return u_grad_norm_; };
   const double get_merit() const { return merit_; };
   const bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
-  const bool get_use_heuristic_line_search() const { return use_heuristic_line_search_; };
+  const bool get_use_filter_line_search() const { return use_filter_line_search_; };
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
   const int get_max_qp_iters(){ return max_qp_iters_; };
   const double get_cost(){ return cost_;};
   const bool get_warm_start() { return warm_start_; };
+  const std::size_t get_filter_size() const { return filter_size_; };
 
 
   const int get_rho_update_interval() { return rho_update_interval_; };
@@ -161,8 +163,13 @@ class SolverFADMM : public SolverDDP {
 
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
-  void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
-  
+  void set_use_filter_line_search(bool inBool) { use_filter_line_search_ = inBool; };
+  void set_filter_size(const std::size_t inFilterSize) { filter_size_ = inFilterSize; 
+                                                        gap_list_.resize(filter_size_); 
+                                                        cost_list_.resize(filter_size_); };
+
+
+
   void update_lagrangian_parameters(bool update_y);
   void set_rho_sparse(double rho_sparse) {rho_sparse_ = rho_sparse;};
   void update_rho_sparse(int iter);
@@ -170,6 +177,8 @@ class SolverFADMM : public SolverDDP {
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
 
  public:
+  boost::circular_buffer<double> gap_list_;                            //!< memory buffer of gap norms (used in filter line-search)
+  boost::circular_buffer<double> cost_list_;                           //!< memory buffer of gap norms (used in filter line-search)
   using SolverDDP::xs_try_;
   using SolverDDP::us_try_;
   using SolverDDP::cost_try_;
@@ -179,7 +188,7 @@ class SolverFADMM : public SolverDDP {
   std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
   Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
   double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
-  bool use_heuristic_line_search_ = false;                              //!< Use heuristic line search
+  bool use_filter_line_search_ = false;                             //!< Use filter line search
 
   std::vector<Eigen::VectorXd> dxtilde_;                                    //!< the descent direction for x
   std::vector<Eigen::VectorXd> dutilde_;                                    //!< the descent direction for u
@@ -228,6 +237,7 @@ class SolverFADMM : public SolverDDP {
   double norm_dual_rel_ = 0.0; // norm dual relative residual
 
   double warm_start_ = true;
+  std::size_t filter_size_ = 1;                                //!< Filter size for line-search (do not change the default value !)
 
 
  private:
@@ -240,6 +250,7 @@ class SolverFADMM : public SolverDDP {
   Eigen::MatrixXd sigma_diag_x; // This is the sigma * eye(ndx)
   std::vector<Eigen::MatrixXd> sigma_diag_u; // This is the sigma * eye(nu)
   std::vector<Eigen::VectorXd> Cdx_Cdu;
+  bool is_worse_than_memory_ = false; //!< Boolean for filter line-search criteria 
 
 };
 

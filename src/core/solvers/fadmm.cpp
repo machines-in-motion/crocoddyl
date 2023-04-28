@@ -29,6 +29,8 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       sigma_diag_x = sigma_* Eigen::MatrixXd::Identity(ndx, ndx);
       sigma_diag_u.resize(T);
       Cdx_Cdu.resize(T+1);
+      gap_list_.resize(filter_size_);
+      cost_list_.resize(filter_size_);
       // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
       fs_flat_.resize(ndx*(T + 1));
@@ -264,26 +266,42 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
       }
       break;
     }
-    if(with_callbacks_){
-      printCallbacks();
-    }
+
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverFADMM::solve");
+        return true;
+      }
+    }  
+
+    gap_list_.push_back(gap_norm_);
+    cost_list_.push_back(cost_);
 
     // We need to recalculate the derivatives when the step length passes
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
       steplength_ = *it;
-
       try {
         merit_try_ = tryStep(steplength_);
       } catch (std::exception& e) {
         continue;
       }
-      // Heuristic line search criteria
-      if(use_heuristic_line_search_){
-        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ || constraint_norm_ > constraint_norm_try_) {
+      // Filter line search criteria 
+      // Equivalent to heuristic cost_ > cost_try_ || gap_norm_ > gap_norm_try_ when filter_size=1
+      if(use_filter_line_search_){
+        is_worse_than_memory_ = false;
+        int count = 0.; 
+        while( count < filter_size_ && is_worse_than_memory_ == false and count <= iter_){
+          is_worse_than_memory_ = cost_list_[filter_size_-1-count] < cost_try_ && gap_list_[filter_size_-1-count] < gap_norm_try_;
+          count++;
+        }
+        if( is_worse_than_memory_ == false ) {
           setCandidate(xs_try_, us_try_, false);
           recalcDiff = true;
           break;
-        }
+        } 
       }
       // Line-search criteria using merit function
       else{
@@ -305,19 +323,9 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
         return false;
       }
     }
-    // KKT termination criteria
-    if(use_kkt_criteria_){
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverFADMM::solve");
-        return true;
-      }
-    }  
-    // Old criteria
-    else {
-      if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
-        STOP_PROFILER("SolverFADMM::solve");
-        return true;
-      }
+
+    if(with_callbacks_){
+      printCallbacks();
     }
   }
   STOP_PROFILER("SolverFADMM::solve");
@@ -404,18 +412,16 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     forwardPass();
     update_lagrangian_parameters(true);
     update_rho_sparse(iter);
-  
-    if (iter % rho_update_interval_ == 0 && iter > 1){
-
-      // std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
-      //         << " rho " << rho_sparse_ << std::endl;
-    
-      if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
+    if(norm_primal_ < eps_abs_ + eps_rel_ * norm_primal_rel_ && norm_dual_ < eps_abs_ + eps_rel_ * norm_dual_rel_){
         qp_iters_ = iter;
         converged_ = true;
         break;
-      }
     }
+
+    // if (iter % rho_update_interval_ == 0 && iter > 1){
+    //   std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
+    //           << " rho " << rho_sparse_ << std::endl;
+    //   }
   }
 
   if (!converged_){
