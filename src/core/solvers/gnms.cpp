@@ -109,6 +109,16 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       break;
     }
 
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverGNMS::solve");
+        return true;
+      }
+    }  
+
     gap_list_.push_back(gap_norm_);
     cost_list_.push_back(cost_);
 
@@ -158,23 +168,6 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
 
     if(with_callbacks_){
       printCallbacks();
-    }
-
-    // KKT termination criteria
-    if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverGNMS::solve");
-        return true;
-      }
-    }  
-    // Old criteria
-    else {
-      if (x_grad_norm_  +  u_grad_norm_ < termination_tol_ ){
-        STOP_PROFILER("SolverGNMS::solve");
-        return true;
-      }
     }
   }
   STOP_PROFILER("SolverGNMS::solve");
