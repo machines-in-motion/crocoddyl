@@ -11,6 +11,8 @@
 
 #include <Eigen/Cholesky>
 #include <vector>
+#include <boost/circular_buffer.hpp>
+// #include <deque>
 
 #include "crocoddyl/core/solvers/ddp.hpp"
 
@@ -104,9 +106,10 @@ class SolverGNMS : public SolverDDP {
   const double get_ugrad_norm() const { return u_grad_norm_; };
   const double get_merit() const { return merit_; };
   const bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
-  const bool get_use_heuristic_line_search() const { return use_heuristic_line_search_; };
+  const bool get_use_filter_line_search() const { return use_filter_line_search_; };
   const double get_mu() const { return mu_; };
   const double get_termination_tolerance() const { return termination_tol_; };
+  const std::size_t get_filter_size() const { return filter_size_; };
 
   void printCallbacks();
   void setCallbacks(bool inCallbacks);
@@ -116,7 +119,10 @@ class SolverGNMS : public SolverDDP {
   void set_mu(double mu) { mu_ = mu; };
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
-  void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
+  void set_use_filter_line_search(bool inBool) { use_filter_line_search_ = inBool; };
+  void set_filter_size(const std::size_t inFilterSize) { filter_size_ = inFilterSize; 
+                                                         gap_list_.resize(filter_size_); 
+                                                         cost_list_.resize(filter_size_); };
   
  public:
   using SolverDDP::xs_try_;
@@ -126,10 +132,12 @@ class SolverGNMS : public SolverDDP {
   std::vector<Eigen::VectorXd> dx_;                                    //!< the descent direction for x
   std::vector<Eigen::VectorXd> du_;                                    //!< the descent direction for u
   std::vector<Eigen::VectorXd> lag_mul_;                               //!< the Lagrange multiplier of the dynamics constraint
+  boost::circular_buffer<double> gap_list_;                            //!< memory buffer of gap norms (used in filter line-search)
+  boost::circular_buffer<double> cost_list_;                           //!< memory buffer of gap norms (used in filter line-search)
   Eigen::VectorXd fs_flat_;                                            //!< Gaps/defects between shooting nodes (1D array)
   double KKT_ = std::numeric_limits<double>::infinity();               //!< KKT conditions residual
-  bool use_heuristic_line_search_ = false;                              //!< Use heuristic line search
-
+  bool use_filter_line_search_ = false;                             //!< Use filter line search
+  
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
   double merit_try_ = 0;                                       //!< merit function for the step length tried
@@ -142,9 +150,11 @@ class SolverGNMS : public SolverDDP {
   double termination_tol_ = 1e-8;                              //!< Termination tolerance
   bool with_callbacks_ = false;                                //!< With callbacks
   bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
+  std::size_t filter_size_ = 1;                                //!< Filter size for line-search (do not change the default value !)
 
  private:
-  double th_acceptnegstep_;  //!< Threshold used for accepting step along ascent direction
+  double th_acceptnegstep_;           //!< Threshold used for accepting step along ascent direction
+  bool is_worse_than_memory_ = false; //!< Boolean for filter line-search criteria 
 };
 
 }  // namespace crocoddyl
