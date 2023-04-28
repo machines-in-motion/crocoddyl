@@ -66,7 +66,8 @@ void exposeConstraintAbstract() {
                     "lower bound of constraint")
       .add_property("ub", bp::make_function(&ConstraintModelAbstract_wrap::get_ub, bp::return_internal_reference<>()),
                     "upper bound of constraint")
-      .add_property("nc", bp::make_function(&ConstraintModelAbstract_wrap::get_nc), "dimension of control vector")
+      .add_property("nc", bp::make_function(&ConstraintModelAbstract_wrap::get_nc), "dimension of constraint vector")
+      .add_property("nu", bp::make_function(&ConstraintModelAbstract_wrap::get_nu), "dimension of control vector")
       .def(CopyableVisitor<ConstraintModelAbstract_wrap>())
       .def(PrintableVisitor<ConstraintModelAbstract>());
 

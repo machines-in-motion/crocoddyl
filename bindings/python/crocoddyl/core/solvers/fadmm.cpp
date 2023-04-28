@@ -92,6 +92,10 @@ void exposeSolverFADMM() {
 
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("rho_sparse", bp::make_function(&SolverFADMM::get_rho_sparse), bp::make_function(&SolverFADMM::set_rho_sparse),
+                    "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("warm_start", bp::make_function(&SolverFADMM::get_warm_start), bp::make_function(&SolverFADMM::set_warm_start),
+                    "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("sigma", bp::make_function(&SolverFADMM::get_sigma), bp::make_function(&SolverFADMM::set_sigma),
                     "get and set sigma")
       .add_property("alpha", bp::make_function(&SolverFADMM::get_alpha), bp::make_function(&SolverFADMM::set_alpha),

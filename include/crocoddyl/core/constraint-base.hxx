@@ -23,6 +23,15 @@ ConstraintModelAbstractTpl<Scalar>::ConstraintModelAbstractTpl(boost::shared_ptr
       nu_(nu) {}
 
 template <typename Scalar>
+ConstraintModelAbstractTpl<Scalar>::ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state,
+                                                               const std::size_t nc, const std::size_t nu)
+    : state_(state),
+      nc_(nc),
+      nu_(nu) { 
+      lb_.resize(nc); lb_.setZero();
+      ub_.resize(nc); ub_.setZero();}
+
+template <typename Scalar>
 ConstraintModelAbstractTpl<Scalar>::~ConstraintModelAbstractTpl() {}
 
 template <typename Scalar>

@@ -87,6 +87,7 @@ class SolverFADMM : public SolverDDP {
   virtual void forwardPass();
   virtual void backwardPass();
   virtual void backwardPass_without_rho_update();
+  virtual void backwardPass_without_constraints();
 
   /**
    * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
@@ -96,6 +97,8 @@ class SolverFADMM : public SolverDDP {
   virtual double tryStep(const double stepLength);
 
   virtual void calc(const bool recalc = true);
+
+  virtual void reset_params();
 
   // virtual void set_constraints(const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models){
   //   constraint_models_ = constraint_models;
@@ -131,11 +134,14 @@ class SolverFADMM : public SolverDDP {
   const double get_termination_tolerance() const { return termination_tol_; };
   const int get_max_qp_iters(){ return max_qp_iters_; };
   const double get_cost(){ return cost_;};
+  const bool get_warm_start() { return warm_start_; };
+
 
   const int get_rho_update_interval() { return rho_update_interval_; };
   const int get_adaptive_rho_tolerance() { return adaptive_rho_tolerance_; };
   const double get_alpha() { return alpha_; };
   const double get_sigma() { return sigma_; };
+  const double get_rho_sparse() { return rho_sparse_;};
 
 
   void printCallbacks();
@@ -151,11 +157,14 @@ class SolverFADMM : public SolverDDP {
   void set_alpha(double alpha) { alpha_ = alpha; };
   void set_sigma(double sigma) { sigma_ = sigma; };
 
+  void set_warm_start(bool warm_start) { warm_start_ = warm_start; };
+
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
   void set_use_heuristic_line_search(bool inBool) { use_heuristic_line_search_ = inBool; };
   
-  void update_lagrangian_parameters();
+  void update_lagrangian_parameters(bool update_y);
+  void set_rho_sparse(double rho_sparse) {rho_sparse_ = rho_sparse;};
   void update_rho_sparse(int iter);
 
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
@@ -181,6 +190,7 @@ class SolverFADMM : public SolverDDP {
   std::vector<Eigen::VectorXd> z_prev_;                               //!< second admm variable previous
   std::vector<Eigen::VectorXd> z_relaxed_;                           //!< relaxed step of z
   std::vector<Eigen::VectorXd> rho_vec_;                              //!< rho vector
+  std::vector<Eigen::VectorXd> inv_rho_vec_;                              //!< rho vector
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -204,18 +214,20 @@ class SolverFADMM : public SolverDDP {
 
   double rho_estimate_sparse_ = 0.0; // rho estimate
   double rho_sparse_ = 1e-1; // rho
+  double rho_sparse_base_;
   double rho_min_ = 1e-6; // rho min
   double rho_max_ = 1e6; // rho max
   int rho_update_interval_ = 25; // frequency of update of rho
   double adaptive_rho_tolerance_ = 5; 
   double eps_abs_ = 1e-4; // absolute termination criteria
-  double eps_rel_ = 1e-3; // relative termination criteria
+  double eps_rel_ = 1e-4; // relative termination criteria
 
   double norm_primal_ = 0.0; // norm primal residual
   double norm_dual_ = 0.0; // norm dual residual
   double norm_primal_rel_ = 0.0; // norm primal relative residual
   double norm_dual_rel_ = 0.0; // norm dual relative residual
 
+  double warm_start_ = true;
 
 
  private:
@@ -224,6 +236,10 @@ class SolverFADMM : public SolverDDP {
   std::vector<boost::shared_ptr<ConstraintDataAbstract>> cdatas_;
   Eigen::VectorXd dual_vecx;
   Eigen::VectorXd dual_vecu;
+
+  Eigen::MatrixXd sigma_diag_x; // This is the sigma * eye(ndx)
+  std::vector<Eigen::MatrixXd> sigma_diag_u; // This is the sigma * eye(nu)
+  std::vector<Eigen::VectorXd> Cdx_Cdu;
 
 };
 

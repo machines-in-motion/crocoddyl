@@ -69,6 +69,9 @@ void exposeCore() {
   // exposeCallbacksGNMS();
   exposeStopWatch();
   exposeStateConstraint();
+  exposeControlConstraint();
+  exposeNoConstraint();
+  exposeConstraintStack();
 }
 
 }  // namespace python

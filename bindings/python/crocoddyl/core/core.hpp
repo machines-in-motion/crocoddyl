@@ -71,7 +71,10 @@ void exposeCallbacks();
 // void exposeCallbacksGNMS();
 void exposeStopWatch();
 void exposeStateConstraint();
+void exposeControlConstraint();
+void exposeNoConstraint();
 void exposeCore();
+void exposeConstraintStack();
 
 }  // namespace python
 }  // namespace crocoddyl

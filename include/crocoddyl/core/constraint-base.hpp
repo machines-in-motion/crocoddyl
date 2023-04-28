@@ -60,6 +60,8 @@ class ConstraintModelAbstractTpl {
   ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu, 
                                                                     const VectorXs& lb, const VectorXs& ub);
 
+  ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu);
+
   virtual ~ConstraintModelAbstractTpl();
 
   /**

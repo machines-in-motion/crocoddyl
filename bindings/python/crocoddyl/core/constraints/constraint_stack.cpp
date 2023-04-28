@@ -1,46 +1,45 @@
 #include "python/crocoddyl/core/core.hpp"
 #include "python/crocoddyl/utils/copyable.hpp"
-#include "crocoddyl/core/state_constraint.hpp"
+#include "crocoddyl/core/constraints/constraint_stack.hpp"
 #include "python/crocoddyl/utils/deprecate.hpp"
 
 namespace crocoddyl {
 namespace python {
 
-void exposeStateConstraint() {
-  bp::register_ptr_to_python<boost::shared_ptr<StateConstraintModel> >();
+void exposeConstraintStack() {
+  bp::register_ptr_to_python<boost::shared_ptr<ConstraintStack> >();
 
-  bp::class_<StateConstraintModel, bp::bases<ConstraintModelAbstract> >(
-      "StateConstraintModel",
+  bp::class_<ConstraintStack, bp::bases<ConstraintModelAbstract>>(
+      "ConstraintStack",
       "This defines equality / inequality constraints based on a residual vector and its bounds.",
-      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&>
-                                    (bp::args("self", "state", "nc", "nu", "lb", "ub"),
+    bp::init<std::vector<boost::shared_ptr<ConstraintModelAbstract>>, boost::shared_ptr<StateAbstract>, std::size_t, std::size_t>
+                                    (bp::args("self","constraint_models","state","nc","nu"),
                                 "Initialize the residual constraint model as an inequality constraint.\n\n"
-                                ":param state: state description\n"
-                                ":param residual: residual model\n"
-                                ":param lower: lower bound\n"
-                                ":param upper: upper bound"))
-      .def<void (StateConstraintModel::*)(const boost::shared_ptr<ConstraintDataAbstract>&,
+                                ":param constraint_models: list of constraint models for time step\n"
+                                 ":param constraint_models: list of constraint models for time step\n"
+                                  ":param constraint_models: list of constraint models for time step\n."))
+      .def<void (ConstraintStack::*)(const boost::shared_ptr<ConstraintDataAbstract>&,
                                             const boost::shared_ptr<ActionDataAbstract>&,
                                              const Eigen::Ref<const Eigen::VectorXd>&,
                                              const Eigen::Ref<const Eigen::VectorXd>&)>(
-          "calc", &StateConstraintModel::calc, bp::args("self", "data", "croc_data", "x", "u"),
+          "calc", &ConstraintStack::calc, bp::args("self", "data", "croc_data", "x", "u"),
           "Compute the residual constraint.\n\n"
           ":param data: constraint data\n"
           ":param croc_data: croco data\n"
           ":param x: state point (dim. state.nx)\n"
           ":param u: control input (dim. nu)")
-      .def<void (StateConstraintModel::*)(const boost::shared_ptr<ConstraintDataAbstract>&,
+      .def<void (ConstraintStack::*)(const boost::shared_ptr<ConstraintDataAbstract>&,
                                             const boost::shared_ptr<ActionDataAbstract>&,
                                              const Eigen::Ref<const Eigen::VectorXd>&,
                                              const Eigen::Ref<const Eigen::VectorXd>&)>(
-          "calcDiff", &StateConstraintModel::calcDiff, bp::args("self", "data", "croc_data", "x", "u"),
+          "calcDiff", &ConstraintStack::calcDiff, bp::args("self", "data", "croc_data", "x", "u"),
           "Compute the derivatives of the residual constraint.\n\n"
           "It assumes that calc has been run first.\n"
           ":param data: constraint data\n"
           ":param croc_data: croco data\n"
           ":param x: state point (dim. state.nx)\n"
           ":param u: control input (dim. nu)\n")
-      .def("createData", &StateConstraintModel::createData, bp::with_custodian_and_ward_postcall<0, 2>(),
+      .def("createData", &ConstraintStack::createData,
            bp::args("self"),
            "Create the residual constraint data.\n\n"
            "Each constraint model has its own data that needs to be allocated. This function\n"
@@ -48,17 +47,16 @@ void exposeStateConstraint() {
            ":param data: shared data\n"
            ":return constraint data.");
 
-  bp::register_ptr_to_python<boost::shared_ptr<StateConstraintData> >();
+    bp::register_ptr_to_python<boost::shared_ptr<ConstraintDataStack> >();
 
-  bp::class_<StateConstraintData, bp::bases<ConstraintDataAbstract> >(
+  bp::class_<ConstraintDataStack, bp::bases<ConstraintDataAbstract> >(
       "StateConstraintData", "Data for residual constraint.\n\n",
-      bp::init<StateConstraintModel*>(
+      bp::init<ConstraintStack*>(
           bp::args("self", "model"),
           "Create residual constraint data.\n\n"
           ":param model: residual constraint model\n"
           ":param data: shared data")[bp::with_custodian_and_ward<1, 2, bp::with_custodian_and_ward<1, 3> >()])
-      .def(CopyableVisitor<StateConstraintData>());
-
+      .def(CopyableVisitor<ConstraintDataStack>());
 
 }
 

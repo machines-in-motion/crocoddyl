@@ -4,7 +4,6 @@
 #define CROCODDYL_CORE_STATE_CONSTRAINT_HPP_
 
 #include "crocoddyl/core/fwd.hpp"
-#include "crocoddyl/core/residual-base.hpp"
 #include "crocoddyl/core/constraint-base.hpp"
 
 namespace crocoddyl{
@@ -43,7 +42,7 @@ class StateConstraintModelTpl : public ConstraintModelAbstractTpl<_Scalar>{
         typedef typename MathBase::VectorXs VectorXs;
         typedef typename MathBase::MatrixXs MatrixXs;
 
-    StateConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu, 
+    StateConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu, 
                                                                     const VectorXs& lb, const VectorXs& ub);
 
     virtual ~StateConstraintModelTpl();
@@ -92,6 +91,6 @@ struct StateConstraintDataTpl : public ConstraintDataAbstractTpl<_Scalar> {
 };
 
 }
-#include "crocoddyl/core/state_constraint.hxx"
+#include "crocoddyl/core/constraints/state_constraint.hxx"
 #endif  // CROCODDYL_CORE_CONSTRAINT_BASE_HPP_
 

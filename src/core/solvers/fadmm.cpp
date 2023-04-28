@@ -26,6 +26,9 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       // std::cout << tmp << std::endl;
       const std::size_t T = this->problem_->get_T();
       const std::size_t ndx = problem_->get_ndx();
+      sigma_diag_x = sigma_* Eigen::MatrixXd::Identity(ndx, ndx);
+      sigma_diag_u.resize(T);
+      Cdx_Cdu.resize(T+1);
       // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
       fs_flat_.resize(ndx*(T + 1));
@@ -36,10 +39,11 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       
       dx_.resize(T+1); dxtilde_.resize(T+1);
       du_.resize(T); dutilde_.resize(T);
-      z_.resize(T+1); z_relaxed_.resize(T+1); y_.resize(T+1); rho_vec_.resize(T+1);
+      z_.resize(T+1); z_relaxed_.resize(T+1); y_.resize(T+1); rho_vec_.resize(T+1); inv_rho_vec_.resize(T+1);
       z_prev_.resize(T+1);
       xs_try_.resize(T+1); us_try_.resize(T);
 
+      rho_sparse_base_ = rho_sparse_;
 
       if (cmodels_.size() != T+1){
         throw_pretty("Constraint Models size is wrong");
@@ -50,6 +54,7 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
         const std::size_t nu = model->get_nu();
+        sigma_diag_u[t] = sigma_ * Eigen::MatrixXd::Identity(nu, nu);
         xs_try_[t] = model->get_state()->zero();
         us_try_[t] = Eigen::VectorXd::Zero(nu);
 
@@ -69,11 +74,15 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
         cdatas_[t] = cmodel->createData();
 
         int nc = cmodel->get_nc();
+        Cdx_Cdu[t].resize(nc); Cdx_Cdu[t].setZero();
+
+
         z_[t].resize(nc); z_[t].setZero();
         z_prev_[t].resize(nc); z_prev_[t].setZero();
         z_relaxed_[t].resize(nc); z_relaxed_[t].setZero();
         y_[t].resize(nc); y_[t].setZero();
         rho_vec_[t].resize(nc); 
+        inv_rho_vec_[t].resize(nc); 
 
         auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
         double infty = std::numeric_limits<double>::infinity();
@@ -81,12 +90,17 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
         for (std::size_t k = 0; k < nc; ++k){
           if (lb[k] == -infty && ub[k] == infty){
               rho_vec_[t][k] = rho_min_;
+              inv_rho_vec_[t][k] = 1.0/rho_min_;
           }
           else if (lb[k] == ub[k]){
               rho_vec_[t][k] = 1e3 * rho_sparse_;
+              inv_rho_vec_[t][k] = 1/(1e3 * rho_sparse_);
+
           }
           else if (lb[k] != ub[k]){
               rho_vec_[t][k] = rho_sparse_;
+              inv_rho_vec_[t][k] = rho_sparse_;
+
           }
         }
       }
@@ -109,18 +123,22 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       z_relaxed_.back().resize(nc); z_relaxed_.back().setZero();
       y_.back().resize(nc); y_.back().setZero();
       rho_vec_.back().resize(nc);
+      inv_rho_vec_.back().resize(nc);
 
       for (std::size_t k = 0; k < nc; ++k){
         auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
         double infty = std::numeric_limits<double>::infinity();
         if (lb[k] == -infty && ub[k] == infty){
             rho_vec_.back()[k] = rho_min_;
+            inv_rho_vec_.back()[k] = 1/rho_min_;
         }
         else if (lb[k] == ub[k]){
             rho_vec_.back()[k] = 1e3 * rho_sparse_;
+            inv_rho_vec_.back()[k] = 1/(1e3 * rho_sparse_);
         }
         else if (lb[k] != ub[k]){
             rho_vec_.back()[k] = rho_sparse_;
+            inv_rho_vec_.back()[k] = 1/rho_sparse_;
         }
       }
 
@@ -135,6 +153,75 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
                   << std::to_string(alphas_[n_alphas - 1]) << std::endl;
       }
     }
+
+
+
+void SolverFADMM::reset_params(){
+
+  rho_sparse_ = rho_sparse_base_;
+  
+  const std::size_t T = this->problem_->get_T();
+  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+    for (std::size_t t = 0; t < T; ++t) {
+      // Constraint Models
+      const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_[t]; 
+      
+      int nc = cmodel->get_nc();
+      z_[t].setZero();
+      z_prev_[t].setZero();
+      z_relaxed_[t].setZero();
+      y_[t].setZero();
+        
+      auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+      double infty = std::numeric_limits<double>::infinity();
+
+      for (std::size_t k = 0; k < nc; ++k){
+        if (lb[k] == -infty && ub[k] == infty){
+            rho_vec_[t][k] = rho_min_;
+            inv_rho_vec_[t][k] = 1/rho_min_;
+
+        }
+        else if (lb[k] == ub[k]){
+            rho_vec_[t][k] = 1e3 * rho_sparse_;
+            inv_rho_vec_[t][k] = 1.0/(1e3 * rho_sparse_);
+        }
+        else if (lb[k] != ub[k]){
+            rho_vec_[t][k] = rho_sparse_;
+            inv_rho_vec_[t][k] = 1/rho_sparse_;
+
+        }
+      }
+    }
+
+    xs_try_.back() = problem_->get_terminalModel()->get_state()->zero();
+
+    lag_mul_.back().setZero();
+    // Constraint Models
+    const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
+    cdatas_.back() = cmodel->createData();
+    int nc = cmodel->get_nc();
+    z_.back().setZero();
+    z_prev_.back().setZero();
+    z_relaxed_.back().setZero();
+    y_.back().setZero();
+    
+    for (std::size_t k = 0; k < nc; ++k){
+      auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+      double infty = std::numeric_limits<double>::infinity();
+      if (lb[k] == -infty && ub[k] == infty){
+          rho_vec_.back()[k] = rho_min_;
+          inv_rho_vec_.back()[k] = 1/rho_min_;
+      }
+      else if (lb[k] == ub[k]){
+          rho_vec_.back()[k] = 1e3 * rho_sparse_;
+          inv_rho_vec_.back()[k] = 1/(1e3 * rho_sparse_);
+      }
+      else if (lb[k] != ub[k]){
+          rho_vec_.back()[k] = rho_sparse_;
+          inv_rho_vec_.back()[k] = 1/rho_sparse_;
+      }
+    }
+}
 
 SolverFADMM::~SolverFADMM() {}
 
@@ -265,7 +352,6 @@ void SolverFADMM::calc(const bool recalc){
 
     cmodel->calc(cdata, datas[t], xs_[t], us_[t]);
     cmodel->calcDiff(cdata, datas[t], xs_[t], us_[t]);
-    //TODO : implement the constraint norm here
     int nc = cmodel->get_nc();
     auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
     constraint_norm_ += (lb - cdata->c).cwiseMax(Eigen::VectorXd::Zero(nc)).lpNorm<1>();
@@ -300,6 +386,13 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     KKT_ = 0.;
     checkKKTConditions();
   }
+
+  if (warm_start_){
+    reset_params();
+    backwardPass_without_constraints();
+    forwardPass();
+    update_lagrangian_parameters(false);
+  }
   bool converged_ = false;
   for (std::size_t iter = 1; iter < max_qp_iters_+1; ++iter){
     if (iter % rho_update_interval_ == 1 || iter == 1){
@@ -309,7 +402,7 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
       backwardPass_without_rho_update();
     }
     forwardPass();
-    update_lagrangian_parameters();
+    update_lagrangian_parameters(true);
     update_rho_sparse(iter);
   
     if (iter % rho_update_interval_ == 0 && iter > 1){
@@ -354,12 +447,16 @@ void SolverFADMM::update_rho_sparse(int iter){
         for (std::size_t k = 0; k < nc; ++k){
           if (lb[k] == -infty && ub[k] == infty){
               rho_vec_[t][k] = rho_min_;
+              inv_rho_vec_[t][k] = 1/rho_min_;
           }
           else if (lb[k] == ub[k]){
               rho_vec_[t][k] = 1e3 * rho_sparse_;
+              inv_rho_vec_[t][k] = 1/(1e3 * rho_sparse_);
+
           }
           else if (lb[k] != ub[k]){
               rho_vec_[t][k] = rho_sparse_;
+              inv_rho_vec_[t][k] = 1/rho_sparse_;
           }
         }  
       }
@@ -422,14 +519,13 @@ void SolverFADMM::backwardPass() {
   boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
   const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back();
 
-  Vxx_.back() = d_T->Lxx + sigma_ * Eigen::MatrixXd::Identity(ndx, ndx);
+  Vxx_.back() = d_T->Lxx + sigma_diag_x;
   Vx_.back() = d_T->Lx - sigma_ * dx_.back();
 
   if (cmodel->get_nc()){ // constraint model
     // TODO : make sure this is not used later
-    auto rho_mat =  rho_vec_.back().matrix().asDiagonal();
-    Vxx_.back().noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cx;
-    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_mat * z_.back());
+    Vxx_.back().noalias() += cdata->Cx.transpose() * rho_vec_.back().asDiagonal() * cdata->Cx;
+    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_vec_.back().cwiseProduct(z_.back()));
   }
   if (!std::isnan(xreg_)) {
     Vxx_.back().diagonal().array() += xreg_;
@@ -457,17 +553,16 @@ void SolverFADMM::backwardPass() {
     Qx_[t] = d->Lx - sigma_ * dx_[t];
 
     if (t > 0 && nc != 0){ //constraint model
-      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-      Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_mat * z_[t]);
+      Qx_[t] += cdata->Cx.transpose() * (y_[t] -  rho_vec_[t].cwiseProduct(z_[t]));
     }
 
     Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
     STOP_PROFILER("SolverFADMM::Qx");
     START_PROFILER("SolverFADMM::Qxx");
-    Qxx_[t] = d->Lxx + sigma_ * Eigen::MatrixXd::Identity(ndx, ndx);
+    Qxx_[t] = d->Lxx + sigma_diag_x;
     if (t > 0 && nc != 0){ //constraint model
-      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-      Qxx_[t].noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cx;
+      Qxx_[t].noalias() += cdata->Cx.transpose() * rho_vec_[t].asDiagonal() * cdata->Cx;
+
     }
 
     Qxx_[t].noalias() += FxTVxx_p_ * d->Fx;
@@ -477,18 +572,16 @@ void SolverFADMM::backwardPass() {
       START_PROFILER("SolverFADMM::Qu");
       Qu_[t] = d->Lu - sigma_ * du_[t];
       if (nc != 0){ //constraint model
-        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-        Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_mat * z_[t]);
+        Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_vec_[t].cwiseProduct(z_[t]));
       }
 
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
 
       STOP_PROFILER("SolverFADMM::Qu");
       START_PROFILER("SolverFADMM::Quu");
-      Quu_[t] = d->Luu + sigma_ * Eigen::MatrixXd::Identity(nu, nu);
+      Quu_[t] = d->Luu + sigma_diag_u[t];
       if (nc != 0){ //constraint model
-        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-        Quu_[t].noalias() += cdata->Cu.transpose() * rho_mat * cdata->Cu;
+        Quu_[t].noalias() += cdata->Cu.transpose() * rho_vec_[t].asDiagonal() * cdata->Cu;
       }
 
       Quu_[t].noalias() += FuTVxx_p_[t] * d->Fu;
@@ -496,8 +589,7 @@ void SolverFADMM::backwardPass() {
       START_PROFILER("SolverFADMM::Qxu");
       Qxu_[t] = d->Lxu; // TODO : check if this should also have added terms
       if (nc != 0){ //constraint model
-        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-        Qxu_[t].noalias() += cdata->Cx.transpose() * rho_mat * cdata->Cu;
+        Qxu_[t].noalias() += cdata->Cx.transpose() * rho_vec_[t].asDiagonal() * cdata->Cu;
       }
 
 
@@ -542,6 +634,96 @@ void SolverFADMM::backwardPass() {
   STOP_PROFILER("SolverFADMM::backwardPass");
 }
 
+void SolverFADMM::backwardPass_without_constraints() {
+  START_PROFILER("SolverFADMM::backwardPass_without_constraints");
+
+  const boost::shared_ptr<ActionDataAbstract>& d_T = problem_->get_terminalData();
+
+  Vxx_.back() = d_T->Lxx;
+  Vx_.back() = d_T->Lx ;
+
+  if (!std::isnan(xreg_)) {
+    Vxx_.back().diagonal().array() += xreg_;
+  }
+
+  if (!is_feasible_) {
+    Vx_.back().noalias() += Vxx_.back() * fs_.back();
+  }
+
+  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+  for (int t = static_cast<int>(problem_->get_T()) - 1; t >= 0; --t) {
+    const boost::shared_ptr<ActionModelAbstract>& m = models[t];
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+    const Eigen::MatrixXd& Vxx_p = Vxx_[t + 1];
+    const Eigen::VectorXd& Vx_p = Vx_[t + 1];
+    const std::size_t nu = m->get_nu();
+    FxTVxx_p_.noalias() = d->Fx.transpose() * Vxx_p;
+    START_PROFILER("SolverFADMM::Qx");
+    Qx_[t] = d->Lx;
+
+    Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
+    STOP_PROFILER("SolverFADMM::Qx");
+    START_PROFILER("SolverFADMM::Qxx");
+    Qxx_[t] = d->Lxx;
+    
+    Qxx_[t].noalias() += FxTVxx_p_ * d->Fx;
+    STOP_PROFILER("SolverFADMM::Qxx");
+    if (nu != 0) {
+      FuTVxx_p_[t].noalias() = d->Fu.transpose() * Vxx_p;
+      START_PROFILER("SolverFADMM::Qu");
+      Qu_[t] = d->Lu;
+      Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
+
+      STOP_PROFILER("SolverFADMM::Qu");
+      START_PROFILER("SolverFADMM::Quu");
+      Quu_[t] = d->Luu;
+      Quu_[t].noalias() += FuTVxx_p_[t] * d->Fu;
+      STOP_PROFILER("SolverFADMM::Quu");
+      START_PROFILER("SolverFADMM::Qxu");
+      Qxu_[t] = d->Lxu; // TODO : check if this should also have added terms
+      Qxu_[t].noalias() += FxTVxx_p_ * d->Fu;
+      STOP_PROFILER("SolverFADMM::Qxu");
+
+      if (!std::isnan(ureg_)) {
+        Quu_[t].diagonal().array() += ureg_;
+      }
+    }
+
+    computeGains(t);
+
+    Vx_[t] = Qx_[t];
+    Vxx_[t] = Qxx_[t];
+    if (nu != 0) {
+      Quuk_[t].noalias() = Quu_[t] * k_[t];
+      Vx_[t].noalias() -= K_[t].transpose() * Qu_[t];
+      START_PROFILER("SolverFADMM::Vxx");
+      Vxx_[t].noalias() -= Qxu_[t] * K_[t];
+      STOP_PROFILER("SolverFADMM::Vxx");
+    }
+    Vxx_tmp_ = 0.5 * (Vxx_[t] + Vxx_[t].transpose());
+    Vxx_[t] = Vxx_tmp_;
+
+    if (!std::isnan(xreg_)) {
+      Vxx_[t].diagonal().array() += xreg_;
+    }
+
+    // Compute and store the Vx gradient at end of the interval (rollout state)
+    if (!is_feasible_) {
+      Vx_[t].noalias() += Vxx_[t] * fs_[t];
+    }
+
+    if (raiseIfNaN(Vx_[t].lpNorm<Eigen::Infinity>())) {
+      throw_pretty("backward_error");
+    }
+    if (raiseIfNaN(Vxx_[t].lpNorm<Eigen::Infinity>())) {
+      throw_pretty("backward_error");
+    }
+  }
+  STOP_PROFILER("SolverFADMM::backwardPass_without_constraints");
+}
+
+
 void SolverFADMM::backwardPass_without_rho_update() {
   START_PROFILER("SolverFADMM::backwardPass_without_rho_update");
 
@@ -554,9 +736,7 @@ void SolverFADMM::backwardPass_without_rho_update() {
   Vx_.back() = d_T->Lx - sigma_ * dx_.back();
 
   if (cmodel->get_nc()){ // constraint model
-    // TODO : make sure this is not used later
-    auto rho_mat =  rho_vec_.back().matrix().asDiagonal();
-    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_mat * z_.back());
+    Vx_.back() += cdata->Cx.transpose() * (y_.back() - rho_vec_.back().cwiseProduct(z_.back()));
   }
 
   if (!is_feasible_) {
@@ -577,8 +757,7 @@ void SolverFADMM::backwardPass_without_rho_update() {
     Qx_[t] = d->Lx - sigma_ * dx_[t];
 
     if (t > 0 && nc != 0){ //constraint model
-      auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-      Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_mat * z_[t]);
+      Qx_[t] += cdata->Cx.transpose() * (y_[t] - rho_vec_[t].cwiseProduct(z_[t]));
     }
 
     Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
@@ -588,8 +767,7 @@ void SolverFADMM::backwardPass_without_rho_update() {
       START_PROFILER("SolverFADMM::Qu");
       Qu_[t] = d->Lu - sigma_ * du_[t];
       if (nc != 0){ //constraint model
-        auto rho_mat =  rho_vec_[t].matrix().asDiagonal();
-        Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_mat * z_[t]);
+        Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_vec_[t].cwiseProduct(z_[t]));
       }
 
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
@@ -621,7 +799,7 @@ void SolverFADMM::backwardPass_without_rho_update() {
 }
 
 
-void SolverFADMM::update_lagrangian_parameters(){
+void SolverFADMM::update_lagrangian_parameters(bool update_y){
     norm_primal_ = -1* std::numeric_limits<double>::infinity();
     norm_dual_ = -1* std::numeric_limits<double>::infinity();
     norm_primal_rel_ = -1* std::numeric_limits<double>::infinity();
@@ -642,16 +820,16 @@ void SolverFADMM::update_lagrangian_parameters(){
       }
 
       z_prev_[t] = z_[t];
-      auto Cdx_Cdu = cdata->Cx * dxtilde_[t] + cdata->Cu * dutilde_[t];
-      z_relaxed_[t] = alpha_ * Cdx_Cdu + (1 - alpha_) * z_[t];
+      Cdx_Cdu[t] = cdata->Cx * dxtilde_[t] + cdata->Cu * dutilde_[t];
+      z_relaxed_[t] = alpha_ * Cdx_Cdu[t] + (1 - alpha_) * z_[t];
 
       const auto ub = cmodel->get_ub(); const auto lb = cmodel->get_lb();
-      for (std::size_t k = 0; k < nc; ++k){ 
-        z_[t][k] = (z_relaxed_[t][k] + (y_[t][k]/rho_vec_[t][k]));
-        z_[t][k] = std::min(std::max(z_[t][k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
+      z_[t] = (z_relaxed_[t] + (y_[t].cwiseProduct(inv_rho_vec_[t])));
+      z_[t] = z_[t].cwiseMax(lb - cdata->c).cwiseMin(ub - cdata->c);
+     
+      if (update_y){
+        y_[t] = y_[t] + rho_vec_[t].cwiseProduct(z_relaxed_[t] - z_[t]);
       }
-
-      y_[t] = y_[t] + rho_vec_[t].cwiseProduct(z_relaxed_[t] - z_[t]);
       dx_[t] = dxtilde_[t]; du_[t] = dutilde_[t];
 
       // operation repeated
@@ -659,8 +837,8 @@ void SolverFADMM::update_lagrangian_parameters(){
       dual_vecu = cdata->Cu.transpose() * (rho_vec_[t].cwiseProduct(z_[t] - z_prev_[t]));
 
       norm_dual_ = std::max(norm_dual_, std::max(dual_vecx.lpNorm<Eigen::Infinity>(), dual_vecu.lpNorm<Eigen::Infinity>()));
-      norm_primal_ = std::max(norm_primal_, (Cdx_Cdu - z_[t]).lpNorm<Eigen::Infinity>());
-      norm_primal_rel_= std::max(norm_primal_rel_, Cdx_Cdu.lpNorm<Eigen::Infinity>());
+      norm_primal_ = std::max(norm_primal_, (Cdx_Cdu[t] - z_[t]).lpNorm<Eigen::Infinity>());
+      norm_primal_rel_= std::max(norm_primal_rel_, Cdx_Cdu[t].lpNorm<Eigen::Infinity>());
       norm_primal_rel_= std::max(norm_primal_rel_, z_[t].lpNorm<Eigen::Infinity>());
       norm_dual_rel_ = std::max(norm_dual_rel_, (cdata->Cx.transpose() * y_[t]).lpNorm<Eigen::Infinity>());
       norm_dual_rel_ = std::max(norm_dual_rel_, (cdata->Cu.transpose() * y_[t]).lpNorm<Eigen::Infinity>());
@@ -673,23 +851,23 @@ void SolverFADMM::update_lagrangian_parameters(){
 
   if (nc != 0){
     z_prev_.back() = z_.back();
-    auto Cdx = cdata->Cx * dxtilde_.back() ;
+    Cdx_Cdu.back() = cdata->Cx * dxtilde_.back() ;
 
-    z_relaxed_.back() = alpha_ * Cdx + (1 - alpha_) * z_.back();
-    for (std::size_t k = 0; k < nc; ++k){
-      z_.back()[k] = (z_relaxed_.back()[k] + (y_.back()[k]/rho_vec_.back()[k]));
-      auto ub = cmodel->get_ub(); auto lb = cmodel->get_lb(); 
-      z_.back()[k] = std::min(std::max(z_.back()[k], lb[k] - cdata->c[k]), ub[k] - cdata->c[k]);
+    z_relaxed_.back() = alpha_ * Cdx_Cdu.back() + (1 - alpha_) * z_.back();
+    auto ub = cmodel->get_ub(); auto lb = cmodel->get_lb(); 
+    z_.back() = (z_relaxed_.back() + (y_.back().cwiseProduct(inv_rho_vec_.back())));
+    z_.back() = z_.back().cwiseMax(lb - cdata->c).cwiseMin(ub - cdata->c);
+
+    if (update_y){
+      y_.back() = y_.back() + rho_vec_.back().cwiseProduct(z_relaxed_.back() - z_.back());
     }
-    
-    y_.back() = y_.back() + rho_vec_.back().cwiseProduct(z_relaxed_.back() - z_.back());
     dx_.back() = dxtilde_.back();
 
     dual_vecx = cdata->Cx.transpose() * rho_vec_.back().cwiseProduct(z_.back() - z_prev_.back());
 
     norm_dual_ = std::max(norm_dual_, dual_vecx.lpNorm<Eigen::Infinity>());
-    norm_primal_ = std::max(norm_primal_, (Cdx - z_.back()).lpNorm<Eigen::Infinity>());
-    norm_primal_rel_= std::max(norm_primal_rel_, Cdx.lpNorm<Eigen::Infinity>());
+    norm_primal_ = std::max(norm_primal_, (Cdx_Cdu.back() - z_.back()).lpNorm<Eigen::Infinity>());
+    norm_primal_rel_= std::max(norm_primal_rel_, Cdx_Cdu.back().lpNorm<Eigen::Infinity>());
     norm_primal_rel_= std::max(norm_primal_rel_, z_.back().lpNorm<Eigen::Infinity>());
     norm_dual_rel_ = std::max(norm_dual_rel_, (cdata->Cx.transpose() * y_.back()).lpNorm<Eigen::Infinity>());
   }

@@ -217,6 +217,21 @@ class StateConstraintModelTpl;
 template <typename Scalar>
 class StateConstraintDataTpl;
 
+template <typename Scalar>
+class ControlConstraintModelTpl;
+template <typename Scalar>
+class ControlConstraintDataTpl;
+
+template <typename Scalar>
+class NoConstraintModelTpl;
+template <typename Scalar>
+class NoConstraintDataTpl;
+
+template <typename Scalar>
+class ConstraintStackTpl;
+template <typename Scalar>
+class ConstraintDataStackTpl;
+
 // shooting
 template <typename Scalar>
 class ShootingProblemTpl;
@@ -273,7 +288,6 @@ typedef DifferentialActionModelAbstractTpl<double> DifferentialActionModelAbstra
 typedef DifferentialActionDataAbstractTpl<double> DifferentialActionDataAbstract;
 typedef DifferentialActionModelLQRTpl<double> DifferentialActionModelLQR;
 typedef DifferentialActionDataLQRTpl<double> DifferentialActionDataLQR;
-
 typedef IntegratedActionModelAbstractTpl<double> IntegratedActionModelAbstract;
 typedef IntegratedActionDataAbstractTpl<double> IntegratedActionDataAbstract;
 typedef IntegratedActionModelEulerTpl<double> IntegratedActionModelEuler;
@@ -344,9 +358,19 @@ DEPRECATED("Use ResidualModelControl with CostModelResidual", typedef CostModelC
 
 typedef ConstraintModelAbstractTpl<double> ConstraintModelAbstract;
 typedef ConstraintDataAbstractTpl<double> ConstraintDataAbstract;
+
 typedef StateConstraintModelTpl<double> StateConstraintModel;
 typedef StateConstraintDataTpl<double> StateConstraintData;
 
+typedef ControlConstraintModelTpl<double> ControlConstraintModel;
+typedef ControlConstraintDataTpl<double> ControlConstraintData;
+
+typedef NoConstraintModelTpl<double> NoConstraintModel;
+typedef NoConstraintDataTpl<double> NoConstraintData;
+
+
+typedef ConstraintStackTpl<double> ConstraintStack;
+typedef ConstraintDataStackTpl<double> ConstraintDataStack;
 
 typedef ShootingProblemTpl<double> ShootingProblem;
 
