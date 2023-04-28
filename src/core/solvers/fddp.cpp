@@ -120,6 +120,8 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       CallbackAbstract& callback = *callbacks_[c];
       callback(*this);
     }
+    // std::cout << "KKT = " << KKT_ << std::endl;
+
     // KKT termination criteria
     if(use_kkt_criteria_){
       KKT_ = 0.;
