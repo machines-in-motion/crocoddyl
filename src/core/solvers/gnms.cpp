@@ -31,6 +31,8 @@ SolverGNMS::SolverGNMS(boost::shared_ptr<ShootingProblem> problem)
       lag_mul_.resize(T+1);
       du_.resize(T);
       KKT_ = 0.;
+      gap_list_.resize(filter_size_);
+      cost_list_.resize(filter_size_);
       const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
@@ -107,6 +109,9 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       break;
     }
 
+    gap_list_.push_back(gap_norm_);
+    cost_list_.push_back(cost_);
+
     // We need to recalculate the derivatives when the step length passes
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
       steplength_ = *it;
@@ -115,13 +120,20 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         continue;
       }
-      // Heuristic line search criteria
-      if(use_heuristic_line_search_){
-        if (cost_ > cost_try_ || gap_norm_ > gap_norm_try_ ) {
+      // Filter line search criteria 
+      // Equivalent to heuristic cost_ > cost_try_ || gap_norm_ > gap_norm_try_ when filter_size=1
+      if(use_filter_line_search_){
+        is_worse_than_memory_ = false;
+        int count = 0.; 
+        while( count < filter_size_ && is_worse_than_memory_ == false and count <= iter_){
+          is_worse_than_memory_ = cost_list_[filter_size_-1-count] < cost_try_ && gap_list_[filter_size_-1-count] < gap_norm_try_;
+          count++;
+        }
+        if( is_worse_than_memory_ == false ) {
           setCandidate(xs_try_, us_try_, false);
           recalcDiff = true;
           break;
-        }
+        } 
       }
       // Line-search criteria using merit function
       else{
@@ -189,7 +201,7 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
   gap_norm_ += fs_.back().lpNorm<1>();   
 
   merit_ = cost_ + mu_*gap_norm_;
-
+  
   backwardPass();
   forwardPass();
 
