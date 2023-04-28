@@ -71,6 +71,16 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     }
     updateExpectedImprovement();
 
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      KKT_ = 0.;
+      checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverFDDP::solve");
+        return true;
+      }
+    } 
+
     // We need to recalculate the derivatives when the step length passes
     recalcDiff = false;
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
@@ -120,22 +130,7 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       CallbackAbstract& callback = *callbacks_[c];
       callback(*this);
     }
-    // KKT termination criteria
-    if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverFDDP::solve");
-        return true;
-      }
-    } 
-    // Old criteria
-    else {
-      if (was_feasible_ && stop_ < th_stop_) {
-        STOP_PROFILER("SolverFDDP::solve");
-        return true;
-      }
-    }
+    // std::cout << "KKT = " << KKT_ << std::endl;
   }
   STOP_PROFILER("SolverFDDP::solve");
   return false;
