@@ -72,6 +72,7 @@ void exposeCallbacks();
 void exposeStopWatch();
 void exposeStateConstraint();
 void exposeControlConstraint();
+void exposeFrameTranslationConstraint();
 void exposeNoConstraint();
 void exposeCore();
 void exposeConstraintStack();

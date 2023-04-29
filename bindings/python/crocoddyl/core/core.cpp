@@ -70,6 +70,7 @@ void exposeCore() {
   exposeStopWatch();
   exposeStateConstraint();
   exposeControlConstraint();
+  exposeFrameTranslationConstraint();
   exposeNoConstraint();
   exposeConstraintStack();
 }

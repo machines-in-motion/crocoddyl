@@ -232,6 +232,12 @@ class ConstraintStackTpl;
 template <typename Scalar>
 class ConstraintDataStackTpl;
 
+
+template <typename Scalar>
+class FrameTranslationConstraintModelTpl;
+template <typename Scalar>
+class FrameTranslationConstraintDataTpl;
+
 // shooting
 template <typename Scalar>
 class ShootingProblemTpl;
@@ -368,6 +374,8 @@ typedef ControlConstraintDataTpl<double> ControlConstraintData;
 typedef NoConstraintModelTpl<double> NoConstraintModel;
 typedef NoConstraintDataTpl<double> NoConstraintData;
 
+typedef FrameTranslationConstraintModelTpl<double> FrameTranslationConstraintModel;
+typedef FrameTranslationConstraintDataTpl<double> FrameTranslationConstraintData;
 
 typedef ConstraintStackTpl<double> ConstraintStack;
 typedef ConstraintDataStackTpl<double> ConstraintDataStack;
