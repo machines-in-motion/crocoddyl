@@ -200,7 +200,6 @@ void SolverFADMM::reset_params(){
     lag_mul_.back().setZero();
     // Constraint Models
     const boost::shared_ptr<ConstraintModelAbstract>& cmodel = cmodels_.back(); 
-    cdatas_.back() = cmodel->createData();
     int nc = cmodel->get_nc();
     z_.back().setZero();
     z_prev_.back().setZero();
@@ -269,8 +268,8 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
 
     // KKT termination criteria
     if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
+      // KKT_ = 0.;
+      // checkKKTConditions();
       if (KKT_  <= termination_tol_) {
         STOP_PROFILER("SolverFADMM::solve");
         return true;
