@@ -34,10 +34,10 @@ void FrameTranslationConstraintModelTpl<Scalar>::calcDiff(const boost::shared_pt
 
 
         IADEuler* iad_euler = static_cast<IADEuler*>(croc_data.get());
-        DADContact* dad_contact = static_cast<DADContact*>(iad_euler->differential.get());
         Data* derived_data = static_cast<Data*>(data.get());
-        pinocchio::getFrameJacobian(*pin_model_.get(), *derived_data->pinocchio, fid_, pinocchio::LOCAL, derived_data->fJf);
-        data->Cx.leftCols(pin_model_->nv) = derived_data->pinocchio->oMf[fid_].rotation() * derived_data->fJf.template topRows<3>();
+        DADContact* dad_contact = static_cast<DADContact*>(iad_euler->differential.get());
+        pinocchio::getFrameJacobian(*pin_model_.get(), dad_contact->pinocchio, fid_, pinocchio::LOCAL, derived_data->fJf);
+        data->Cx.leftCols(pin_model_->nv) = dad_contact->pinocchio.oMf[fid_].rotation() * derived_data->fJf.template topRows<3>();
         data->Cu = Iu_;            
     }
 
