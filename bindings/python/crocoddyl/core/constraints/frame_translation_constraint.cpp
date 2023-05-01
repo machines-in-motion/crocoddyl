@@ -1,3 +1,4 @@
+#include "pinocchio/container/boost-container-limits.hpp"
 #include "python/crocoddyl/core/core.hpp"
 #include "python/crocoddyl/utils/copyable.hpp"
 #include "crocoddyl/core/constraints/frame_translation_constraint.hpp"
@@ -54,11 +55,13 @@ void exposeFrameTranslationConstraint() {
       bp::init<FrameTranslationConstraintModel*>(
           bp::args("self", "model"),
           "Create residual constraint data.\n\n"
-          ":param model: residual constraint model\n"
-          ":param data: shared data")[bp::with_custodian_and_ward<1, 2, bp::with_custodian_and_ward<1, 2> >()])
+          ":param model: frame translation residual model"))
+      .add_property("pinocchio",
+                    bp::make_getter(&FrameTranslationConstraintData::pinocchio, bp::return_internal_reference<>()),
+                    "pinocchio data")
+      .add_property("fJf", bp::make_getter(&FrameTranslationConstraintData::fJf, bp::return_internal_reference<>()),
+                    "local Jacobian of the frame")
       .def(CopyableVisitor<FrameTranslationConstraintData>());
-
-
 }
 
 

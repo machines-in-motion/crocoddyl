@@ -3,12 +3,14 @@
 #ifndef CROCODDYL_CORE_FRAME_CONSTRAINT_HPP_
 #define CROCODDYL_CORE_FRAME_CONSTRAINT_HPP_
 
-#include "crocoddyl/core/fwd.hpp"
 #include <pinocchio/algorithm/frames.hpp>
+
+#include "crocoddyl/core/fwd.hpp"
 #include "crocoddyl/core/constraint-base.hpp"
 #include "crocoddyl/multibody/states/multibody.hpp"
 #include "crocoddyl/core/integ-action-base.hpp"
 #include "crocoddyl/core/integrator/euler.hpp"
+#include "crocoddyl/multibody/actions/contact-fwddyn.hpp"
 
 namespace crocoddyl{
 /**
@@ -43,7 +45,8 @@ class FrameTranslationConstraintModelTpl : public ConstraintModelAbstractTpl<_Sc
         typedef ConstraintModelAbstractTpl<Scalar> Base;
         typedef StateMultibodyTpl<Scalar> StateMultibody;
         typedef FrameTranslationConstraintDataTpl<Scalar> Data;
-        typedef IntegratedActionDataAbstractTpl<Scalar> Data_croc;
+        typedef IntegratedActionDataEulerTpl<Scalar> IADEuler;
+        typedef DifferentialActionDataContactFwdDynamicsTpl<Scalar> DADContact;
         typedef ConstraintDataAbstractTpl<Scalar> ConstraintDataAbstract;
         typedef typename MathBase::VectorXs VectorXs;
         typedef typename MathBase::MatrixXs MatrixXs;
@@ -77,9 +80,7 @@ class FrameTranslationConstraintModelTpl : public ConstraintModelAbstractTpl<_Sc
         MatrixXs Ix_;                
         MatrixXs Iu_;               
         const std::size_t fid_;
-        pinocchio::ModelTpl<Scalar>& pin_model_;
-        // pinocchio::DataTpl<Scalar>& pin_data_;
-
+        boost::shared_ptr<typename StateMultibody::PinocchioModel> pin_model_;
 };
 
 template <typename _Scalar>
@@ -89,9 +90,15 @@ struct FrameTranslationConstraintDataTpl : public ConstraintDataAbstractTpl<_Sca
   typedef _Scalar Scalar;
   typedef MathBaseTpl<Scalar> MathBase;
   typedef ConstraintDataAbstractTpl<Scalar> Base;
+  typedef typename MathBase::Matrix6xs Matrix6xs;
 
   template <template <typename Scalar> class Model>
-  FrameTranslationConstraintDataTpl(Model<Scalar>* const model) : Base(model) {}
+  FrameTranslationConstraintDataTpl(Model<Scalar>* const model) : Base(model), fJf(6, model->get_state()->get_nv()) {
+    fJf.setZero();
+  }
+  
+  pinocchio::DataTpl<Scalar>* pinocchio;
+  Matrix6xs fJf; 
 };
 
 }
