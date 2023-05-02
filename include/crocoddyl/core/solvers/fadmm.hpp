@@ -145,6 +145,9 @@ class SolverFADMM : public SolverDDP {
   const double get_sigma() { return sigma_; };
   const double get_rho_sparse() { return rho_sparse_;};
 
+  const double get_eps_abs() { return eps_abs_;};
+  const double get_eps_rel() { return eps_rel_;};
+
 
   void printCallbacks();
   void setCallbacks(bool inCallbacks);
@@ -175,6 +178,8 @@ class SolverFADMM : public SolverDDP {
   void update_rho_sparse(int iter);
 
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
+  void set_eps_abs(double eps_abs) { eps_abs_ = eps_abs;};
+  void set_eps_rel(double eps_rel) { eps_rel_ = eps_rel;};
 
  public:
   boost::circular_buffer<double> gap_list_;                            //!< memory buffer of gap norms (used in filter line-search)
@@ -200,6 +205,12 @@ class SolverFADMM : public SolverDDP {
   std::vector<Eigen::VectorXd> z_relaxed_;                           //!< relaxed step of z
   std::vector<Eigen::VectorXd> rho_vec_;                              //!< rho vector
   std::vector<Eigen::VectorXd> inv_rho_vec_;                              //!< rho vector
+
+  double norm_primal_ = 0.0; // norm primal residual
+  double norm_dual_ = 0.0; // norm dual residual
+  double norm_primal_rel_ = 0.0; // norm primal relative residual
+  double norm_dual_rel_ = 0.0; // norm dual relative residual
+
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -231,10 +242,7 @@ class SolverFADMM : public SolverDDP {
   double eps_abs_ = 1e-4; // absolute termination criteria
   double eps_rel_ = 1e-4; // relative termination criteria
 
-  double norm_primal_ = 0.0; // norm primal residual
-  double norm_dual_ = 0.0; // norm dual residual
-  double norm_primal_rel_ = 0.0; // norm primal relative residual
-  double norm_dual_rel_ = 0.0; // norm dual relative residual
+ 
 
   double warm_start_ = true;
   std::size_t filter_size_ = 1;                                //!< Filter size for line-search (do not change the default value !)

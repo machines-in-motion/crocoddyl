@@ -64,13 +64,18 @@ void exposeSolverFADMM() {
            "")
       .def("computeDirection", &SolverFADMM::computeDirection, bp::args("self", "recalcDiff"),
            "")
-
+      .def("checkKKTConditions", &SolverFADMM::checkKKTConditions, bp::args("self"),
+           "")
       .def_readwrite("xs_try", &SolverFADMM::xs_try_, "xs try")
       .def_readwrite("us_try", &SolverFADMM::us_try_, "us try")  
       .def_readwrite("cost_try", &SolverFADMM::cost_try_, "cost try")
       .def_readwrite("fs_try", &SolverFADMM::fs_try_, "fs_try")
       .def_readwrite("lag_mul", &SolverFADMM::lag_mul_, "lagrange multipliers")
-      .def_readwrite("KKT", &SolverFADMM::KKT_, "KKT residual")
+      .def_readwrite("norm_primal", &SolverFADMM::norm_primal_, "norm_primal")
+      .def_readwrite("norm_dual", &SolverFADMM::norm_dual_, "norm_dual ")
+      .def_readwrite("norm_dual_rel", &SolverFADMM::norm_dual_rel_, "norm_dual_rel")
+      .def_readwrite("norm_primal_rel", &SolverFADMM::norm_primal_rel_, "norm_primal_rel")
+
 
       .add_property("with_callbacks", bp::make_function(&SolverFADMM::getCallbacks), bp::make_function(&SolverFADMM::setCallbacks),
                     "Activates the callbacks when true (default: False)")
@@ -92,6 +97,10 @@ void exposeSolverFADMM() {
 
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
+      .add_property("eps_abs", bp::make_function(&SolverFADMM::get_eps_abs), bp::make_function(&SolverFADMM::set_eps_abs),
+                    "sets epsillon absolute termination criteria for qp solver")
+      .add_property("eps_rel", bp::make_function(&SolverFADMM::get_eps_rel), bp::make_function(&SolverFADMM::set_eps_rel),
+                    "sets epsillon relative termination criteria for qp solver")
       .add_property("rho_sparse", bp::make_function(&SolverFADMM::get_rho_sparse), bp::make_function(&SolverFADMM::set_rho_sparse),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("warm_start", bp::make_function(&SolverFADMM::get_warm_start), bp::make_function(&SolverFADMM::set_warm_start),
