@@ -40,7 +40,7 @@ SET(PROJECT_USE_CMAKE_EXPORT True)
 # Create different building options
 OPTION(ENABLE_VECTORIZATION "Enable vectorization and further processor-related optimizations" OFF)
 OPTION(BUILD_PYTHON_INTERFACE "Build the python binding" ON)
-OPTION(BUILD_BENCHMARK "Build the benchmark" OFF)
+OPTION(BUILD_BENCHMARK "Build the benchmark" ON)
 OPTION(BUILD_EXAMPLES "Build the examples" OFF)
 
 IF(DEFINED BUILD_UNIT_TESTS)
@@ -144,6 +144,7 @@ IF(BUILD_PYTHON_INTERFACE)
   FINDPYTHON()
   SEARCH_FOR_BOOST_PYTHON(REQUIRED)
   ADD_PROJECT_DEPENDENCY(eigenpy 2.5.0 REQUIRED PKG_CONFIG_REQUIRES "eigenpy >= 2.5.0")
+  find_package(Python3 3.8 COMPONENTS Interpreter NumPy REQUIRED)
 ENDIF(BUILD_PYTHON_INTERFACE)
 
 # Main library

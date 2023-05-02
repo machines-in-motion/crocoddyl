@@ -68,8 +68,8 @@ void exposeSolverPROXQP() {
                     "Activates the callbacks when true (default: False)")
       .add_property("use_kkt_criteria", bp::make_function(&SolverPROXQP::set_use_kkt_criteria), bp::make_function(&SolverPROXQP::get_use_kkt_criteria),
                     "Use the KKT residual condition as a termination criteria (default: True)")
-      .add_property("xs", make_function(&SolverPROXQP::get_xs, bp::return_value_policy<bp::copy_const_reference>()), "xs")
-      .add_property("us", make_function(&SolverPROXQP::get_us, bp::return_value_policy<bp::copy_const_reference>()), "us")
+      .add_property("xs", make_function(&SolverPROXQP::get_xs, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverPROXQP::set_xs), "xs")
+      .add_property("us", make_function(&SolverPROXQP::get_us, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverPROXQP::set_us), "us")
       .add_property("P", make_function(&SolverPROXQP::get_P, bp::return_value_policy<bp::copy_const_reference>()), "P")
       .add_property("A", make_function(&SolverPROXQP::get_A, bp::return_value_policy<bp::copy_const_reference>()), "A")
       .add_property("C", make_function(&SolverPROXQP::get_C, bp::return_value_policy<bp::copy_const_reference>()), "C")

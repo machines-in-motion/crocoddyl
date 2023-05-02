@@ -83,8 +83,8 @@ void exposeSolverFADMM() {
                     "Use the KKT residual condition as a termination criteria (default: True)")
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
-      .add_property("xs", make_function(&SolverFADMM::get_xs, bp::return_value_policy<bp::copy_const_reference>()), "xs")
-      .add_property("us", make_function(&SolverFADMM::get_us, bp::return_value_policy<bp::copy_const_reference>()), "us")
+      .add_property("xs", make_function(&SolverFADMM::get_xs, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverFADMM::set_xs), "xs")
+      .add_property("us", make_function(&SolverFADMM::get_us, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverFADMM::set_us), "us")
       .add_property("dx_tilde", make_function(&SolverFADMM::get_xs_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
       .add_property("du_tilde", make_function(&SolverFADMM::get_us_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
       

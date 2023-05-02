@@ -111,10 +111,10 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
 
     // KKT termination criteria
     if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
+      // KKT_ = 0.;
+      // checkKKTConditions();
       if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverGNMS::solve");
+        STOP_PROFILER("SolverFADMM::solve");
         return true;
       }
     }  
@@ -188,7 +188,13 @@ void SolverGNMS::computeDirection(const bool recalcDiff){
   gap_norm_ += fs_.back().lpNorm<1>();   
 
   merit_ = cost_ + mu_*gap_norm_;
-  
+
+  // KKT termination criteria
+  if(use_kkt_criteria_){
+    KKT_ = 0.;
+    checkKKTConditions();
+  }  
+
   backwardPass();
   forwardPass();
 
