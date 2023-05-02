@@ -29,6 +29,7 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       sigma_diag_x = sigma_* Eigen::MatrixXd::Identity(ndx, ndx);
       sigma_diag_u.resize(T);
       Cdx_Cdu.resize(T+1);
+      constraint_list_.resize(filter_size_);
       gap_list_.resize(filter_size_);
       cost_list_.resize(filter_size_);
       // std::cout << "ndx" << ndx << std::endl;
@@ -276,6 +277,7 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
       }
     }  
 
+    constraint_list_.push_back(constraint_norm_);
     gap_list_.push_back(gap_norm_);
     cost_list_.push_back(cost_);
 
@@ -293,7 +295,7 @@ bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::
         is_worse_than_memory_ = false;
         int count = 0.; 
         while( count < filter_size_ && is_worse_than_memory_ == false and count <= iter_){
-          is_worse_than_memory_ = cost_list_[filter_size_-1-count] < cost_try_ && gap_list_[filter_size_-1-count] < gap_norm_try_;
+          is_worse_than_memory_ = cost_list_[filter_size_-1-count] < cost_try_ && gap_list_[filter_size_-1-count] < gap_norm_try_ && constraint_list_[filter_size_-1-count] < constraint_norm_try_;
           count++;
         }
         if( is_worse_than_memory_ == false ) {

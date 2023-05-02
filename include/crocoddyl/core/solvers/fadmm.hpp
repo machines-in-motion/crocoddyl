@@ -166,6 +166,7 @@ class SolverFADMM : public SolverDDP {
   void set_use_filter_line_search(bool inBool) { use_filter_line_search_ = inBool; };
   void set_filter_size(const std::size_t inFilterSize) { filter_size_ = inFilterSize; 
                                                         gap_list_.resize(filter_size_); 
+                                                        constraint_list_.resize(filter_size_); 
                                                         cost_list_.resize(filter_size_); };
 
 
@@ -177,6 +178,7 @@ class SolverFADMM : public SolverDDP {
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
 
  public:
+  boost::circular_buffer<double> constraint_list_;                      //!< memory buffer of constraint norms (used in filter line-search)
   boost::circular_buffer<double> gap_list_;                            //!< memory buffer of gap norms (used in filter line-search)
   boost::circular_buffer<double> cost_list_;                           //!< memory buffer of gap norms (used in filter line-search)
   using SolverDDP::xs_try_;
