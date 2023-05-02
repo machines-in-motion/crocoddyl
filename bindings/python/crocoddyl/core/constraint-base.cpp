@@ -63,8 +63,11 @@ void exposeConstraintAbstract() {
           bp::make_function(&ConstraintModelAbstract_wrap::get_state, bp::return_value_policy<bp::return_by_value>()),
           "state description")
       .add_property("lb", bp::make_function(&ConstraintModelAbstract_wrap::get_lb, bp::return_internal_reference<>()),
+                          bp::make_function(&ConstraintModelAbstract_wrap::set_lb),
                     "lower bound of constraint")
+
       .add_property("ub", bp::make_function(&ConstraintModelAbstract_wrap::get_ub, bp::return_internal_reference<>()),
+                          bp::make_function(&ConstraintModelAbstract_wrap::set_ub),
                     "upper bound of constraint")
       .add_property("nc", bp::make_function(&ConstraintModelAbstract_wrap::get_nc), "dimension of constraint vector")
       .add_property("nu", bp::make_function(&ConstraintModelAbstract_wrap::get_nu), "dimension of control vector")
