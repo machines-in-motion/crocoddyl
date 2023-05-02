@@ -60,6 +60,10 @@ void exposeSolverFADMM() {
            "")
       .def("backwardPass", &SolverFADMM::backwardPass, bp::args("self"),
            "")
+      .def("backwardPass_without_constraints", &SolverFADMM::backwardPass_without_constraints, bp::args("self"),
+           "")
+      .def("backwardPass_without_rho_update", &SolverFADMM::backwardPass_without_rho_update, bp::args("self"),
+           "")
       .def("update_rho_sparse", &SolverFADMM::update_rho_sparse, bp::args("self", "iter"),
            "")
       .def("computeDirection", &SolverFADMM::computeDirection, bp::args("self", "recalcDiff"),
