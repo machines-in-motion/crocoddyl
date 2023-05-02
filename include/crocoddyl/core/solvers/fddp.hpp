@@ -84,6 +84,11 @@ class SolverFDDP : public SolverDDP {
   virtual void forwardPass(const double stepLength);
 
   /**
+   * @brief Computes the merit function, gaps at the given xs, us along with delta x and delta u
+   */
+  virtual void computeDirection(const bool recalcDiff);
+  
+  /**
    * @brief Return the threshold used for accepting step along ascent direction
    */
   double get_th_acceptnegstep() const;

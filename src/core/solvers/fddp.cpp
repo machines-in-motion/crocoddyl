@@ -52,7 +52,6 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     ureg_ = reginit;
   }
   was_feasible_ = false;
-
   bool recalcDiff = true;
   for (iter_ = 0; iter_ < maxiter; ++iter_) {
     while (true) {
@@ -73,8 +72,8 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
 
     // KKT termination criteria
     if(use_kkt_criteria_){
-      KKT_ = 0.;
-      checkKKTConditions();
+      // KKT_ = 0.;
+      // checkKKTConditions();
       if (KKT_  <= termination_tol_) {
         STOP_PROFILER("SolverFDDP::solve");
         return true;
@@ -134,6 +133,20 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
   }
   STOP_PROFILER("SolverFDDP::solve");
   return false;
+}
+
+void SolverFDDP::computeDirection(const bool recalcDiff) {
+  START_PROFILER("SolverFDDP::computeDirection");
+  if (recalcDiff) {
+    calcDiff();
+  }
+  // KKT termination criteria
+  if(use_kkt_criteria_){
+    KKT_ = 0.;
+    checkKKTConditions();
+  }  
+  backwardPass();
+  STOP_PROFILER("SolverFDDP::computeDirection");
 }
 
 void SolverFDDP::checkKKTConditions(){

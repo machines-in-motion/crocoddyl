@@ -153,6 +153,16 @@ class ConstraintModelAbstractTpl {
    */
   virtual void print(std::ostream& os) const;
 
+  /**
+   * @brief Sets the lower bound of the constraint
+   */
+  void set_lb(const VectorXs& inLb) { lb_ = inLb; };
+
+  /**
+   * @brief Sets the lower bound of the constraint
+   */
+  void set_ub(const VectorXs& inUb) { ub_ = inUb; };
+
  private:
 
  protected:
