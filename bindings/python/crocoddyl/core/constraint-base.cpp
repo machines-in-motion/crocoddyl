@@ -30,8 +30,8 @@ void exposeConstraintAbstract() {
       "The constraint function depends on the state point x, which lies in the state manifold\n"
       "described with a nx-tuple, its velocity xd that belongs to the tangent space with ndx dimension,\n"
       "and the control input u.",
-      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&>(
-          bp::args("self", "state", "nc", "nu", "lb", "ub"),
+      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&, const std::string>(
+          bp::args("self", "state", "nc", "nu", "lb", "ub", "name"),
           "Initialize the constraint model.\n\n"
           ":param state: state description\n"
           ":param nu: dimension of control vector (default state.nv)\n"
@@ -72,6 +72,7 @@ void exposeConstraintAbstract() {
       .add_property("nc", bp::make_function(&ConstraintModelAbstract_wrap::get_nc), "dimension of constraint vector")
       .add_property("nu", bp::make_function(&ConstraintModelAbstract_wrap::get_nu), "dimension of control vector")
       .def(CopyableVisitor<ConstraintModelAbstract_wrap>())
+      .def_readwrite("name", &ConstraintModelAbstract_wrap::constraint_name_, "name")
       .def(PrintableVisitor<ConstraintModelAbstract>());
 
   bp::register_ptr_to_python<boost::shared_ptr<ConstraintDataAbstract> >();

@@ -23,7 +23,7 @@ class ConstraintStackTpl :  public ConstraintModelAbstractTpl<_Scalar>{
         typedef typename MathBase::MatrixXs MatrixXs;
 
     ConstraintStackTpl(std::vector<boost::shared_ptr<Base>> constraint_models, 
-                                boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu);
+                                boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu, const std::string name);
 
     virtual ~ConstraintStackTpl();
     
@@ -34,6 +34,8 @@ class ConstraintStackTpl :  public ConstraintModelAbstractTpl<_Scalar>{
                         const Eigen::Ref<const VectorXs>& u);
   
     virtual boost::shared_ptr<ConstraintDataAbstract> createData();
+
+    virtual const std::vector<boost::shared_ptr<Base>> get_constraints();
 
     private:
         VectorXs tmp_lb_ = Eigen::VectorXd::Zero(4);                                        //!< Lower bound of the constraint

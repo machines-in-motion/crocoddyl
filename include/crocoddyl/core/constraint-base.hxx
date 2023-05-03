@@ -15,19 +15,19 @@ template <typename Scalar>
 ConstraintModelAbstractTpl<Scalar>::ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state,
                                                                const std::size_t nc, const std::size_t nu,
                                                                const VectorXs& lb, 
-                                                               const VectorXs& ub)
+                                                               const VectorXs& ub, const std::string name)
     : state_(state),
       lb_(lb),
       ub_(ub),
       nc_(nc),
-      nu_(nu) {}
+      nu_(nu), constraint_name_(name) {}
 
 template <typename Scalar>
 ConstraintModelAbstractTpl<Scalar>::ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state,
-                                                               const std::size_t nc, const std::size_t nu)
+                                                               const std::size_t nc, const std::size_t nu, const std::string name)
     : state_(state),
       nc_(nc),
-      nu_(nu) { 
+      nu_(nu), constraint_name_(name) { 
       lb_.resize(nc); lb_.setZero();
       ub_.resize(nc); ub_.setZero();}
 

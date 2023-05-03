@@ -43,7 +43,7 @@ class ControlConstraintModelTpl : public ConstraintModelAbstractTpl<_Scalar>{
         typedef typename MathBase::MatrixXs MatrixXs;
 
     ControlConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu, 
-                                                                    const VectorXs& lb, const VectorXs& ub);
+                                                                    const VectorXs& lb, const VectorXs& ub, const std::string name);
 
     virtual ~ControlConstraintModelTpl();
     

@@ -4,9 +4,9 @@
 namespace crocoddyl{
 
 template <typename Scalar>
-NoConstraintModelTpl<Scalar>::NoConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu)
+NoConstraintModelTpl<Scalar>::NoConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu, const std::string name)
 
-                                                        : Base(state, 0, nu){
+                                                        : Base(state, 0, nu, name){
 
     }
 

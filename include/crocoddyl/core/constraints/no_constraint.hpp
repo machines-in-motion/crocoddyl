@@ -42,7 +42,7 @@ class NoConstraintModelTpl : public ConstraintModelAbstractTpl<_Scalar>{
         typedef typename MathBase::VectorXs VectorXs;
         typedef typename MathBase::MatrixXs MatrixXs;
 
-    NoConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu);
+    NoConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu, const std::string name);
 
     virtual ~NoConstraintModelTpl();
     

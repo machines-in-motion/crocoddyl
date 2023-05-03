@@ -58,9 +58,9 @@ class ConstraintModelAbstractTpl {
    * @param[in] nh     Number of equality constraints
    */
   ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu, 
-                                                                    const VectorXs& lb, const VectorXs& ub);
+                                                                    const VectorXs& lb, const VectorXs& ub, const std::string name);
 
-  ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu);
+  ConstraintModelAbstractTpl(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu, const std::string name);
 
   virtual ~ConstraintModelAbstractTpl();
 
@@ -163,7 +163,11 @@ class ConstraintModelAbstractTpl {
    */
   void set_ub(const VectorXs& inUb) { ub_ = inUb; };
 
+
+  std::string constraint_name_;  // name of the constraint
+
  private:
+  // std::string& constraint_name_;
 
  protected:
   boost::shared_ptr<StateAbstract> state_;             //!< State description

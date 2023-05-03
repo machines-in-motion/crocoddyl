@@ -5,9 +5,9 @@ namespace crocoddyl{
 
 template <typename Scalar>
 ControlConstraintModelTpl<Scalar>::ControlConstraintModelTpl(boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nu, 
-                                                                    const VectorXs& lb, const VectorXs& ub)
+                                                                    const VectorXs& lb, const VectorXs& ub, const std::string name)
 
-                                                        : Base(state, nu, nu, lb, ub){
+                                                        : Base(state, nu, nu, lb, ub, name){
 
         Iu.resize(this->nc_, this->nu_); Ix.resize(this->nc_, this->state_->get_nx());
         Ix.setZero();
