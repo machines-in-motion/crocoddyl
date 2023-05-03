@@ -227,13 +227,13 @@ void SolverGNMS::forwardPass(){
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
     for (std::size_t t = 0; t < T; ++t) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
+      lag_mul_[t].noalias() = Vxx_[t] * (dx_[t] - fs_[t]) + Vx_[t];
       du_[t].noalias() = -K_[t]*(dx_[t]) - k_[t];
       dx_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dx_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
       x_grad_norm_ += dx_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
       u_grad_norm_ += du_[t].lpNorm<1>();
     }
-    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
+    lag_mul_.back() = Vxx_.back() * (dx_.back() - fs_.back()) + Vx_.back();
     x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
     x_grad_norm_ = x_grad_norm_/(T+1);
     u_grad_norm_ = u_grad_norm_/T; 
