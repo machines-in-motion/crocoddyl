@@ -18,7 +18,8 @@ void exposeControlConstraint() {
                                 ":param state: state description\n"
                                 ":param residual: residual model\n"
                                 ":param lower: lower bound\n"
-                                ":param upper: upper bound"))
+                                ":param upper: upper bound\n"
+                                ":param name: name of the constraint"))
       .def<void (ControlConstraintModel::*)(const boost::shared_ptr<ConstraintDataAbstract>&,
                                             const boost::shared_ptr<ActionDataAbstract>&,
                                              const Eigen::Ref<const Eigen::VectorXd>&,
