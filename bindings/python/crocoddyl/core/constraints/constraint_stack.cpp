@@ -12,8 +12,8 @@ void exposeConstraintStack() {
   bp::class_<ConstraintStack, bp::bases<ConstraintModelAbstract>>(
       "ConstraintStack",
       "This defines equality / inequality constraints based on a residual vector and its bounds.",
-    bp::init<std::vector<boost::shared_ptr<ConstraintModelAbstract>>, boost::shared_ptr<StateAbstract>, std::size_t, std::size_t>
-                                    (bp::args("self","constraint_models","state","nc","nu"),
+    bp::init<std::vector<boost::shared_ptr<ConstraintModelAbstract>>, boost::shared_ptr<StateAbstract>, std::size_t, std::size_t, const std::string>
+                                    (bp::args("self","constraint_models","state","nc","nu", "name"),
                                 "Initialize the residual constraint model as an inequality constraint.\n\n"
                                 ":param constraint_models: list of constraint models for time step\n"
                                  ":param constraint_models: list of constraint models for time step\n"
@@ -39,6 +39,8 @@ void exposeConstraintStack() {
           ":param croc_data: croco data\n"
           ":param x: state point (dim. state.nx)\n"
           ":param u: control input (dim. nu)\n")
+        .def("get_constraints", &ConstraintStack::get_constraints,
+           bp::args("self"))
       .def("createData", &ConstraintStack::createData,
            bp::args("self"),
            "Create the residual constraint data.\n\n"

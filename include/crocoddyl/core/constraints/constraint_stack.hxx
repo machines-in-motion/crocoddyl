@@ -5,9 +5,9 @@ namespace crocoddyl{
 
 template <typename Scalar>
 ConstraintStackTpl<Scalar>::ConstraintStackTpl(std::vector<boost::shared_ptr<Base>> constraint_models,  
-                                                  boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu) :
+                                                  boost::shared_ptr<typename Base::StateAbstract> state, std::size_t nc, std::size_t nu, const std::string name) :
               constraint_models_(constraint_models),
-              Base(state, nc, nu)
+              Base(state, nc, nu, name)
         {
 
           nb_c = constraint_models_.size(),
@@ -64,6 +64,11 @@ void ConstraintStackTpl<Scalar>::calcDiff(const boost::shared_ptr<ConstraintData
 template <typename Scalar>
 boost::shared_ptr<ConstraintDataAbstractTpl<Scalar>> ConstraintStackTpl<Scalar>::createData() {
   return boost::allocate_shared<Data>(Eigen::aligned_allocator<Data>(), this);
+}
+
+template <typename Scalar>
+const std::vector<boost::shared_ptr<ConstraintModelAbstractTpl<Scalar>>> ConstraintStackTpl<Scalar>::get_constraints() {
+  return constraint_models_;
 }
 
 }

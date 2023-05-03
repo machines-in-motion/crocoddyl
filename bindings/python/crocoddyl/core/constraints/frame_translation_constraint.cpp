@@ -13,8 +13,8 @@ void exposeFrameTranslationConstraint() {
   bp::class_<FrameTranslationConstraintModel, bp::bases<ConstraintModelAbstract> >(
       "FrameTranslationConstraintModel",
       "This defines equality / inequality constraints based on a residual vector and its bounds.",
-      bp::init<boost::shared_ptr<StateMultibody>, std::size_t, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&>
-                                    (bp::args("self", "state", "nu", "fid", "lb", "ub"),
+      bp::init<boost::shared_ptr<StateMultibody>, std::size_t, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&, std::string>
+                                    (bp::args("self", "state", "nu", "fid", "lb", "ub", "name"),
                                 "Initialize the residual constraint model as an inequality constraint.\n\n"
                                 ":param state: state description\n"
                                 ":param lower: lower bound\n"

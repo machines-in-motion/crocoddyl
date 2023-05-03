@@ -19,8 +19,8 @@ class ConstraintModelAbstract_wrap : public ConstraintModelAbstract, public bp::
  public:
 
   ConstraintModelAbstract_wrap(boost::shared_ptr<StateAbstract> state, const std::size_t nc, const std::size_t nu, 
-                              const VectorXs& lb,const VectorXs& ub)
-      : ConstraintModelAbstract(state, nc, nu, lb, ub), bp::wrapper<ConstraintModelAbstract>() {}
+                              const VectorXs& lb,const VectorXs& ub, const std::string name)
+      : ConstraintModelAbstract(state, nc, nu, lb, ub, name), bp::wrapper<ConstraintModelAbstract>() {}
 
   void calc(const boost::shared_ptr<ConstraintDataAbstract>& data, const boost::shared_ptr<ActionDataAbstract>& croc_data, const Eigen::Ref<const Eigen::VectorXd>& x,
             const Eigen::Ref<const Eigen::VectorXd>& u) {

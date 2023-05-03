@@ -12,7 +12,7 @@ void exposeNoConstraint() {
   bp::class_<NoConstraintModel, bp::bases<ConstraintModelAbstract> >(
       "NoConstraintModel",
       "This defines equality / inequality constraints based on a residual vector and its bounds.",
-      bp::init<boost::shared_ptr<StateAbstract>, std::size_t>
+      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, std::string>
                                     (bp::args("self", "state", "nu"),
                                 "Initialize the residual constraint model as an inequality constraint.\n\n"
                                 ":param state: state description\n"

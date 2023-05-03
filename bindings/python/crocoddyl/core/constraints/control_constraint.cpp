@@ -12,8 +12,8 @@ void exposeControlConstraint() {
   bp::class_<ControlConstraintModel, bp::bases<ConstraintModelAbstract> >(
       "ControlConstraintModel",
       "This defines equality / inequality constraints based on a residual vector and its bounds.",
-      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&>
-                                    (bp::args("self", "state", "nu", "lb", "ub"),
+      bp::init<boost::shared_ptr<StateAbstract>, std::size_t, const Eigen::Ref<const Eigen::VectorXd>&, const Eigen::Ref<const Eigen::VectorXd>&, const std::string>
+                                    (bp::args("self", "state", "nu", "lb", "ub", "name"),
                                 "Initialize the residual constraint model as an inequality constraint.\n\n"
                                 ":param state: state description\n"
                                 ":param residual: residual model\n"

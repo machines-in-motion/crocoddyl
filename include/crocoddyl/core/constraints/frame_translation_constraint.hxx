@@ -5,9 +5,9 @@ namespace crocoddyl{
 
 template <typename Scalar>
 FrameTranslationConstraintModelTpl<Scalar>::FrameTranslationConstraintModelTpl(boost::shared_ptr<StateMultibody> state, std::size_t nu, std::size_t fid, 
-                                                                    const VectorXs& lb, const VectorXs& ub)
+                                                                    const VectorXs& lb, const VectorXs& ub, std::string name)
 
-                                                      : Base(state, 3, nu, lb, ub), fid_(fid), pin_model_(state->get_pinocchio())
+                                                      : Base(state, 3, nu, lb, ub, name), fid_(fid), pin_model_(state->get_pinocchio())
 {
         // pinocchio::DataTpl<Scalar> pin_data_tmp(pin_model_);
         // pin_data_ = pin_data_tmp;

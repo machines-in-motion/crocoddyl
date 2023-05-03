@@ -52,7 +52,7 @@ class FrameTranslationConstraintModelTpl : public ConstraintModelAbstractTpl<_Sc
         typedef typename MathBase::MatrixXs MatrixXs;
 
     FrameTranslationConstraintModelTpl(boost::shared_ptr<StateMultibody> state, std::size_t nu, std::size_t fid,  
-                                                                    const VectorXs& lb, const VectorXs& ub);
+                                                                    const VectorXs& lb, const VectorXs& ub, std::string name);
 
     virtual ~FrameTranslationConstraintModelTpl();
     
