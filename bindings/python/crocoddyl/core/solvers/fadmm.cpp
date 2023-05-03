@@ -99,6 +99,15 @@ void exposeSolverFADMM() {
       .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
 
 
+      .add_property("constraint_norm", bp::make_function(&SolverFADMM::get_constraint_norm),
+                    "Constraint norm")
+      .add_property("gap_norm", bp::make_function(&SolverFADMM::get_gap_norm), 
+                    "Gap norm")
+      .add_property("qp_iters", bp::make_function(&SolverFADMM::get_qp_iters),
+                    "Number of QP iterations")
+      .add_property("KKT_norm", bp::make_function(&SolverFADMM::get_KKT_norm),
+                    "KKT norm")
+                    
       .add_property("mu", bp::make_function(&SolverFADMM::get_mu), bp::make_function(&SolverFADMM::set_mu),
                     "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("eps_abs", bp::make_function(&SolverFADMM::get_eps_abs), bp::make_function(&SolverFADMM::set_eps_abs),

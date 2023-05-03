@@ -64,6 +64,15 @@ void exposeSolverPROXQP() {
       .def_readwrite("lag_mul", &SolverPROXQP::lag_mul_, "lagrange multipliers")
       .def_readwrite("KKT", &SolverPROXQP::KKT_, "KKT residual")
 
+      .add_property("constraint_norm", bp::make_function(&SolverPROXQP::get_constraint_norm),
+                    "Constraint norm")
+      .add_property("gap_norm", bp::make_function(&SolverPROXQP::get_gap_norm), 
+                    "Gap norm")
+      .add_property("qp_iters", bp::make_function(&SolverPROXQP::get_qp_iters),
+                    "Number of QP iterations")
+      .add_property("KKT_norm", bp::make_function(&SolverPROXQP::get_KKT_norm),
+                    "KKT norm")
+
       .add_property("with_callbacks", bp::make_function(&SolverPROXQP::getCallbacks), bp::make_function(&SolverPROXQP::setCallbacks),
                     "Activates the callbacks when true (default: False)")
       .add_property("use_kkt_criteria", bp::make_function(&SolverPROXQP::set_use_kkt_criteria), bp::make_function(&SolverPROXQP::get_use_kkt_criteria),

@@ -334,7 +334,8 @@ void SolverPROXQP::computeDirection(const bool recalcDiff){
   qp.init(Psp_, q_, Asp_, b_, Csp_, l_, u_);
 
   qp.settings.eps_abs = eps_abs_;
-  qp.solve();
+  qp.settings.max_iter = max_qp_iters_;
+  qp.solve(); 
   auto res = qp.results.x;
   qp_iters_ = qp.results.info.iter;
 
