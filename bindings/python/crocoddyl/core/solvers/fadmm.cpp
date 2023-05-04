@@ -79,6 +79,11 @@ void exposeSolverFADMM() {
       .def_readwrite("norm_dual", &SolverFADMM::norm_dual_, "norm_dual ")
       .def_readwrite("norm_dual_rel", &SolverFADMM::norm_dual_rel_, "norm_dual_rel")
       .def_readwrite("norm_primal_rel", &SolverFADMM::norm_primal_rel_, "norm_primal_rel")
+      .def_readwrite("rho_vec", &SolverFADMM::rho_vec_, "rho vector")
+      .def_readwrite("y", &SolverFADMM::y_, "y")
+      .def_readwrite("z", &SolverFADMM::z_, "z")
+      .def_readwrite("warm_start_y", &SolverFADMM::warm_start_y_, "Warm-start ADMM Lagrange multipliers with previous solution (default: False, i.e. reset to 0)")
+      .def_readwrite("reset_rho", &SolverFADMM::reset_rho_, "Reset the rho parameter (default: False, i.e. not reset to base values)")
 
 
       .add_property("with_callbacks", bp::make_function(&SolverFADMM::getCallbacks), bp::make_function(&SolverFADMM::setCallbacks),
@@ -92,11 +97,11 @@ void exposeSolverFADMM() {
       .add_property("dx_tilde", make_function(&SolverFADMM::get_xs_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
       .add_property("du_tilde", make_function(&SolverFADMM::get_us_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
       
-      .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
-      .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
+     //  .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
+     //  .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
 
 
-      .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
+     //  .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
 
 
       .add_property("constraint_norm", bp::make_function(&SolverFADMM::get_constraint_norm),

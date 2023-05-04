@@ -216,6 +216,8 @@ class SolverFADMM : public SolverDDP {
   double norm_primal_rel_ = 0.0; // norm primal relative residual
   double norm_dual_rel_ = 0.0; // norm dual relative residual
 
+  bool warm_start_y_ = false;
+  bool reset_rho_ = false;
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -241,13 +243,11 @@ class SolverFADMM : public SolverDDP {
   double rho_sparse_ = 1e-1; // rho
   double rho_sparse_base_;
   double rho_min_ = 1e-6; // rho min
-  double rho_max_ = 1e6; // rho max
+  double rho_max_ = 1e6; // rho max 1e3
   int rho_update_interval_ = 25; // frequency of update of rho
   double adaptive_rho_tolerance_ = 5; 
   double eps_abs_ = 1e-4; // absolute termination criteria
   double eps_rel_ = 1e-4; // relative termination criteria
-
- 
 
   double warm_start_ = true;
   std::size_t filter_size_ = 1;                                //!< Filter size for line-search (do not change the default value !)

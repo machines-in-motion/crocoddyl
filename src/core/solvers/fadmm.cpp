@@ -173,27 +173,35 @@ void SolverFADMM::reset_params(){
       z_[t].setZero();
       z_prev_[t].setZero();
       z_relaxed_[t].setZero();
-      y_[t].setZero();
+      
+      // Warm start y
+      if(!warm_start_y_){
+        y_[t].setZero();
+      } 
         
       auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
       double infty = std::numeric_limits<double>::infinity();
 
-      // for (std::size_t k = 0; k < nc; ++k){
-      //   if (lb[k] == -infty && ub[k] == infty){
-      //       rho_vec_[t][k] = rho_min_;
-      //       inv_rho_vec_[t][k] = 1/rho_min_;
+      // Reset rho
+      if(reset_rho_){
+        for (std::size_t k = 0; k < nc; ++k){
+          if (lb[k] == -infty && ub[k] == infty){
+              rho_vec_[t][k] = rho_min_;
+              inv_rho_vec_[t][k] = 1/rho_min_;
 
-      //   }
-      //   else if (lb[k] == ub[k]){
-      //       rho_vec_[t][k] = 1e3 * rho_sparse_;
-      //       inv_rho_vec_[t][k] = 1.0/(1e3 * rho_sparse_);
-      //   }
-      //   else if (lb[k] != ub[k]){
-      //       rho_vec_[t][k] = rho_sparse_;
-      //       inv_rho_vec_[t][k] = 1/rho_sparse_;
+          }
+          else if (lb[k] == ub[k]){
+              rho_vec_[t][k] = 1e3 * rho_sparse_;
+              inv_rho_vec_[t][k] = 1.0/(1e3 * rho_sparse_);
+          }
+          else if (lb[k] != ub[k]){
+              rho_vec_[t][k] = rho_sparse_;
+              inv_rho_vec_[t][k] = 1/rho_sparse_;
 
-      //   }
-      // }
+          }
+        }
+      }
+
     }
 
     lag_mul_.back().setZero();
@@ -203,31 +211,36 @@ void SolverFADMM::reset_params(){
     z_.back().setZero();
     z_prev_.back().setZero();
     z_relaxed_.back().setZero();
-    y_.back().setZero();
-    
-    // for (std::size_t k = 0; k < nc; ++k){
-    //   auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
-    //   double infty = std::numeric_limits<double>::infinity();
-    //   if (lb[k] == -infty && ub[k] == infty){
-    //       rho_vec_.back()[k] = rho_min_;
-    //       inv_rho_vec_.back()[k] = 1/rho_min_;
-    //   }
-    //   else if (lb[k] == ub[k]){
-    //       rho_vec_.back()[k] = 1e3 * rho_sparse_;
-    //       inv_rho_vec_.back()[k] = 1/(1e3 * rho_sparse_);
-    //   }
-    //   else if (lb[k] != ub[k]){
-    //       rho_vec_.back()[k] = rho_sparse_;
-    //       inv_rho_vec_.back()[k] = 1/rho_sparse_;
-    //   }
-    // }
+    // Warm-start y
+    if(!warm_start_y_){
+      y_.back().setZero();
+    }
+    // Reset rho
+    if(reset_rho_){
+      for (std::size_t k = 0; k < nc; ++k){
+        auto lb = cmodel->get_lb(); auto ub = cmodel->get_ub();
+        double infty = std::numeric_limits<double>::infinity();
+        if (lb[k] == -infty && ub[k] == infty){
+            rho_vec_.back()[k] = rho_min_;
+            inv_rho_vec_.back()[k] = 1/rho_min_;
+        }
+        else if (lb[k] == ub[k]){
+            rho_vec_.back()[k] = 1e3 * rho_sparse_;
+            inv_rho_vec_.back()[k] = 1/(1e3 * rho_sparse_);
+        }
+        else if (lb[k] != ub[k]){
+            rho_vec_.back()[k] = rho_sparse_;
+            inv_rho_vec_.back()[k] = 1/rho_sparse_;
+        }
+      }
+    }
 }
 
 SolverFADMM::~SolverFADMM() {}
 
 bool SolverFADMM::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::vector<Eigen::VectorXd>& init_us,
                        const std::size_t maxiter, const bool is_feasible, const double reginit) {
-
+  
   START_PROFILER("SolverFADMM::solve");
   if (problem_->is_updated()) {
     resizeData();
