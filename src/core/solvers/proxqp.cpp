@@ -334,7 +334,11 @@ void SolverPROXQP::computeDirection(const bool recalcDiff){
   qp.init(Psp_, q_, Asp_, b_, Csp_, l_, u_);
 
   qp.settings.eps_abs = eps_abs_;
+  // std::cout << "max qp iter = " << max_qp_iters_ << std::endl;
   qp.settings.max_iter = max_qp_iters_;
+  qp.settings.max_iter_in = max_qp_iters_;
+  // std::cout << "was set to = " << qp.settings.max_iter << std::endl;
+  // std::cout << "was set in to = " << qp.settings.max_iter_in << std::endl;
   qp.solve(); 
   auto res = qp.results.x;
   qp_iters_ = qp.results.info.iter;
