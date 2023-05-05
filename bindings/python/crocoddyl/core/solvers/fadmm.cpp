@@ -97,11 +97,9 @@ void exposeSolverFADMM() {
       .add_property("dx_tilde", make_function(&SolverFADMM::get_xs_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
       .add_property("du_tilde", make_function(&SolverFADMM::get_us_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
       
-     //  .add_property("y", make_function(&SolverFADMM::get_y, bp::return_value_policy<bp::copy_const_reference>()), "y")
-     //  .add_property("z", make_function(&SolverFADMM::get_z, bp::return_value_policy<bp::copy_const_reference>()), "z")
 
-
-     //  .add_property("get_rho_vec", make_function(&SolverFADMM::get_rho_vec, bp::return_value_policy<bp::copy_const_reference>()), "get_rho_vec")
+      .add_property("cmodels", make_function(&SolverFADMM::get_constraints, bp::return_value_policy<bp::copy_const_reference>()),
+                    "Vector of constraint models")
 
 
       .add_property("constraint_norm", bp::make_function(&SolverFADMM::get_constraint_norm),

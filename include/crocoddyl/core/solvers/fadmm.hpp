@@ -124,6 +124,7 @@ class SolverFADMM : public SolverDDP {
 
   const std::vector<Eigen::VectorXd>& get_rho_vec() const { return rho_vec_; };
 
+  const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& get_constraints() const { return cmodels_; };
 
   const double get_KKT_norm() const { return KKT_; };
   const double get_gap_norm() const { return gap_norm_; };
@@ -243,7 +244,7 @@ class SolverFADMM : public SolverDDP {
   double rho_sparse_ = 1e-1; // rho
   double rho_sparse_base_;
   double rho_min_ = 1e-6; // rho min
-  double rho_max_ = 1e6; // rho max 1e3
+  double rho_max_ = 1e3; //1e6; // rho max 
   int rho_update_interval_ = 25; // frequency of update of rho
   double adaptive_rho_tolerance_ = 5; 
   double eps_abs_ = 1e-4; // absolute termination criteria
