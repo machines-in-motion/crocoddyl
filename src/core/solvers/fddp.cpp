@@ -230,7 +230,7 @@ void SolverFDDP::forwardPass(const double steplength) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
       const std::size_t nu = m->get_nu();
       //compute Lagrange multipliers for KKT condition check
-      lag_mul_[t].noalias() = Vxx_[t] * (dx_[t] - fs_[t]) + Vx_[t]; 
+      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
       xs_try_[t] = xnext_;
       m->get_state()->diff(xs_[t], xs_try_[t], dx_[t]);
       if (nu != 0) {
@@ -254,7 +254,7 @@ void SolverFDDP::forwardPass(const double steplength) {
 
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    lag_mul_.back() = Vxx_.back() * (dx_.back() - fs_.back()) + Vx_.back();  
+    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();  
     xs_try_.back() = xnext_;
     m->calc(d, xs_try_.back());
     cost_try_ += d->cost;
@@ -268,7 +268,7 @@ void SolverFDDP::forwardPass(const double steplength) {
       const boost::shared_ptr<ActionModelAbstract>& m = models[t];
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
       const std::size_t nu = m->get_nu();
-      lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t];
+      lag_mul_[t].noalias() = Vxx_[t] * (dx_[t] - fs_[t]) + Vx_[t]; 
       m->get_state()->integrate(xnext_, fs_[t] * (steplength - 1), xs_try_[t]);
       m->get_state()->diff(xs_[t], xs_try_[t], dx_[t]);
       if (nu != 0) {
@@ -292,7 +292,7 @@ void SolverFDDP::forwardPass(const double steplength) {
 
     const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
     const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
-    lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
+    lag_mul_.back() = Vxx_.back() * (dx_.back() - fs_.back()) + Vx_.back();  
     m->get_state()->integrate(xnext_, fs_.back() * (steplength - 1), xs_try_.back());
     m->calc(d, xs_try_.back());
     cost_try_ += d->cost;

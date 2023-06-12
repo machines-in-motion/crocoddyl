@@ -135,7 +135,14 @@ void exposeSolverDDP() {
                     "threshold for accepting a gap as non-zero")
       .add_property("alphas",
                     bp::make_function(&SolverDDP::get_alphas, bp::return_value_policy<bp::copy_const_reference>()),
-                    bp::make_function(&SolverDDP::set_alphas), "list of step length (alpha) values");
+                    bp::make_function(&SolverDDP::set_alphas), "list of step length (alpha) values")
+      .def_readwrite("lag_mul", &SolverDDP::lag_mul_, "lagrange multipliers")
+      .def_readwrite("KKT", &SolverDDP::KKT_, "KKT residual")
+      
+      .add_property("use_kkt_criteria", bp::make_function(&SolverDDP::get_use_kkt_criteria), bp::make_function(&SolverDDP::set_use_kkt_criteria),
+                    "Use the KKT residual condition as a termination criteria (default: True)")
+      .add_property("termination_tolerance", bp::make_function(&SolverDDP::get_termination_tolerance), bp::make_function(&SolverDDP::set_termination_tolerance),
+                    "Termination criteria to exit the iteration (default: 1e-8)");
 }
 
 }  // namespace python
