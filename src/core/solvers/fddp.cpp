@@ -19,18 +19,25 @@ SolverFDDP::SolverFDDP(boost::shared_ptr<ShootingProblem> problem)
     : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2) {
       const std::size_t T = this->problem_->get_T();
       const std::size_t ndx = problem_->get_ndx();
+      fs_try_.resize(T + 1);
       lag_mul_.resize(T+1);
       KKT_ = 0.;
       fs_flat_.resize(ndx*(T + 1));
       fs_flat_.setZero();
+      gap_list_.resize(filter_size_);
+      cost_list_.resize(filter_size_);
       const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<ActionModelAbstract>& model = models[t];
         lag_mul_[t].resize(ndx); 
         lag_mul_[t].setZero();
+        fs_try_[t].resize(ndx);
+        fs_try_[t] = Eigen::VectorXd::Zero(ndx);
       }
       lag_mul_.back().resize(ndx);
       lag_mul_.back().setZero();
+      fs_try_.back().resize(ndx);
+      fs_try_.back() = Eigen::VectorXd::Zero(ndx);
     }
 
 SolverFDDP::~SolverFDDP() {}
@@ -80,6 +87,9 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       }
     } 
 
+    gap_list_.push_back(gap_norm_);
+    cost_list_.push_back(cost_);
+
     // We need to recalculate the derivatives when the step length passes
     recalcDiff = false;
     for (std::vector<double>::const_iterator it = alphas_.begin(); it != alphas_.end(); ++it) {
@@ -90,24 +100,43 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         continue;
       }
-      expectedImprovement();
-      dVexp_ = steplength_ * (d_[0] + 0.5 * steplength_ * d_[1]);
 
-      if (dVexp_ >= 0) {  // descend direction
-        if (d_[0] < th_grad_ || dV_ > th_acceptstep_ * dVexp_) {
-          was_feasible_ = is_feasible_;
-          setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
-          cost_ = cost_try_;
-          recalcDiff = true;
-          break;
+      // Filter line search criteria 
+      // Equivalent to heuristic cost_ > cost_try_ || gap_norm_ > gap_norm_try_ when filter_size=1
+      if(use_filter_line_search_){
+        is_worse_than_memory_ = false;
+        int count = 0.; 
+        while( count < filter_size_ && is_worse_than_memory_ == false and count <= iter_){
+          is_worse_than_memory_ = cost_list_[filter_size_-1-count] < cost_try_ && gap_list_[filter_size_-1-count] < gap_norm_try_;
+          count++;
         }
-      } else {  // reducing the gaps by allowing a small increment in the cost value
-        if (dV_ > th_acceptnegstep_ * dVexp_) {
-          was_feasible_ = is_feasible_;
-          setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
-          cost_ = cost_try_;
+        if( is_worse_than_memory_ == false ) {
+          setCandidate(xs_try_, us_try_, false);
           recalcDiff = true;
           break;
+        } 
+      }
+      // Using expectation model
+      else {
+        expectedImprovement();
+        dVexp_ = steplength_ * (d_[0] + 0.5 * steplength_ * d_[1]);
+
+        if (dVexp_ >= 0) {  // descend direction
+          if (d_[0] < th_grad_ || dV_ > th_acceptstep_ * dVexp_) {
+            was_feasible_ = is_feasible_;
+            setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+            cost_ = cost_try_;
+            recalcDiff = true;
+            break;
+          }
+        } else {  // reducing the gaps by allowing a small increment in the cost value
+          if (dV_ > th_acceptnegstep_ * dVexp_) {
+            was_feasible_ = is_feasible_;
+            setCandidate(xs_try_, us_try_, (was_feasible_) || (steplength_ == 1));
+            cost_ = cost_try_;
+            recalcDiff = true;
+            break;
+          }
         }
       }
     }
@@ -140,6 +169,14 @@ void SolverFDDP::computeDirection(const bool recalcDiff) {
   if (recalcDiff) {
     calcDiff();
   }
+
+  gap_norm_ = 0;
+  const std::size_t T = problem_->get_T();
+  for (std::size_t t = 0; t < T; ++t) {
+    gap_norm_ += fs_[t].lpNorm<1>();   
+  }
+  gap_norm_ += fs_.back().lpNorm<1>();
+
   // KKT termination criteria
   if(use_kkt_criteria_){
     KKT_ = 0.;
@@ -220,6 +257,7 @@ void SolverFDDP::forwardPass(const double steplength) {
   }
   START_PROFILER("SolverFDDP::forwardPass");
   cost_try_ = 0.;
+  gap_norm_try_ = 0;
   xnext_ = problem_->get_x0();
   const std::size_t T = problem_->get_T();
   const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
@@ -242,6 +280,9 @@ void SolverFDDP::forwardPass(const double steplength) {
       xnext_ = d->xnext;
       cost_try_ += d->cost;
 
+      m->get_state()->diff(xs_try_[t], d->xnext, fs_try_[t]);
+      gap_norm_try_ += fs_try_[t].lpNorm<1>(); 
+
       if (raiseIfNaN(cost_try_)) {
         STOP_PROFILER("SolverFDDP::forwardPass");
         throw_pretty("forward_error");
@@ -258,7 +299,7 @@ void SolverFDDP::forwardPass(const double steplength) {
     xs_try_.back() = xnext_;
     m->calc(d, xs_try_.back());
     cost_try_ += d->cost;
-
+    
     if (raiseIfNaN(cost_try_)) {
       STOP_PROFILER("SolverFDDP::forwardPass");
       throw_pretty("forward_error");
@@ -279,6 +320,9 @@ void SolverFDDP::forwardPass(const double steplength) {
       }
       xnext_ = d->xnext;
       cost_try_ += d->cost;
+
+      m->get_state()->diff(xs_try_[t], d->xnext, fs_try_[t]);
+      gap_norm_try_ += fs_try_[t].lpNorm<1>(); 
 
       if (raiseIfNaN(cost_try_)) {
         STOP_PROFILER("SolverFDDP::forwardPass");

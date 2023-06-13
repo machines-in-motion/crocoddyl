@@ -114,7 +114,7 @@ bool SolverGNMS::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       // KKT_ = 0.;
       // checkKKTConditions();
       if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverFADMM::solve");
+        STOP_PROFILER("SolverGNMS::solve");
         return true;
       }
     }  
