@@ -59,7 +59,13 @@ void exposeSolverFDDP() {
                     "Termination criteria to exit the iteration (default: 1e-8)")
       .add_property("th_acceptNegStep", bp::make_function(&SolverFDDP::get_th_acceptnegstep),
                     bp::make_function(&SolverFDDP::set_th_acceptnegstep),
-                    "threshold for step acceptance in ascent direction");
+                    "threshold for step acceptance in ascent direction")
+      .add_property("use_filter_line_search", bp::make_function(&SolverFDDP::get_use_filter_line_search), bp::make_function(&SolverFDDP::set_use_filter_line_search),
+                    "Use the filter line search criteria (default: False)")
+      .add_property("termination_tol", bp::make_function(&SolverFDDP::get_termination_tolerance), bp::make_function(&SolverFDDP::set_termination_tolerance),
+                    "Termination criteria to exit the iteration (default: 1e-8)")
+      .add_property("filter_size", bp::make_function(&SolverFDDP::get_filter_size), bp::make_function(&SolverFDDP::set_filter_size),
+                    "filter size for the line-search (default: 10)");
 }
 
 }  // namespace python

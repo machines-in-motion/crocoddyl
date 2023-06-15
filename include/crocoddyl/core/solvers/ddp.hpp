@@ -293,6 +293,17 @@ class SolverDDP : public SolverAbstract {
    */
   void set_th_grad(const double th_grad);
 
+  /**
+   * @brief Compute the KKT conditions residual
+   */
+  virtual void checkKKTConditions();
+
+  void set_termination_tolerance(double tol) { termination_tol_ = tol; };
+  void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
+
+  const double get_termination_tolerance() const { return termination_tol_; };
+  const bool get_use_kkt_criteria() const { return use_kkt_criteria_; }
+
  protected:
   double reg_incfactor_;  //!< Regularization factor used to increase the damping value
   double reg_decfactor_;  //!< Regularization factor used to decrease the damping value
@@ -327,6 +338,13 @@ class SolverDDP : public SolverAbstract {
   double th_grad_;                     //!< Tolerance of the expected gradient used for testing the step
   double th_stepdec_;                  //!< Step-length threshold used to decrease regularization
   double th_stepinc_;                  //!< Step-length threshold used to increase regularization
+
+ public:
+  std::vector<Eigen::VectorXd> lag_mul_;                   //!< the Lagrange multiplier of the dynamics constraint
+  double KKT_ = std::numeric_limits<double>::infinity();   //!< KKT conditions residual
+  bool use_kkt_criteria_ = true;                           //!< Use KKT conditions as termination criteria 
+  Eigen::VectorXd fs_flat_;                                //!< Gaps/defects between shooting nodes (1D array)
+  double termination_tol_ = 1e-8;                          //!< Termination tolerance
 };
 
 }  // namespace crocoddyl

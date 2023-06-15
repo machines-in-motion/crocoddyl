@@ -35,6 +35,21 @@ SolverDDP::SolverDDP(boost::shared_ptr<ShootingProblem> problem)
     std::cerr << "Warning: th_stepinc has higher value than lowest alpha value, set to "
               << std::to_string(alphas_[n_alphas - 1]) << std::endl;
   }
+
+  const std::size_t T = this->problem_->get_T();
+  const std::size_t ndx = problem_->get_ndx();
+  lag_mul_.resize(T+1);
+  KKT_ = 0.;
+  fs_flat_.resize(ndx*(T + 1));
+  fs_flat_.setZero();
+  const std::vector<boost::shared_ptr<ActionModelAbstract> >& models = problem_->get_runningModels();
+  for (std::size_t t = 0; t < T; ++t) {
+    const boost::shared_ptr<ActionModelAbstract>& model = models[t];
+    lag_mul_[t].resize(ndx); 
+    lag_mul_[t].setZero();
+  }
+  lag_mul_.back().resize(ndx);
+  lag_mul_.back().setZero();
 }
 
 SolverDDP::~SolverDDP() {}
@@ -74,6 +89,16 @@ bool SolverDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
       break;
     }
     expectedImprovement();
+
+    // KKT termination criteria
+    if(use_kkt_criteria_){
+      // KKT_ = 0.;
+      // checkKKTConditions();
+      if (KKT_  <= termination_tol_) {
+        STOP_PROFILER("SolverDDP::solve");
+        return true;
+      }
+    } 
 
     // We need to recalculate the derivatives when the step length passes
     recalcDiff = false;
@@ -116,10 +141,10 @@ bool SolverDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
       callback(*this);
     }
 
-    if (was_feasible_ && stop_ < th_stop_) {
-      STOP_PROFILER("SolverDDP::solve");
-      return true;
-    }
+    // if (was_feasible_ && stop_ < th_stop_) {
+    //   STOP_PROFILER("SolverDDP::solve");
+    //   return true;
+    // }
   }
   STOP_PROFILER("SolverDDP::solve");
   return false;
@@ -130,6 +155,11 @@ void SolverDDP::computeDirection(const bool recalcDiff) {
   if (recalcDiff) {
     calcDiff();
   }
+  // KKT termination criteria
+  if(use_kkt_criteria_){
+    KKT_ = 0.;
+    checkKKTConditions();
+  }  
   backwardPass();
   STOP_PROFILER("SolverDDP::computeDirection");
 }
@@ -139,6 +169,22 @@ double SolverDDP::tryStep(const double steplength) {
   forwardPass(steplength);
   STOP_PROFILER("SolverDDP::tryStep");
   return cost_ - cost_try_;
+}
+
+void SolverDDP::checkKKTConditions(){
+  const std::size_t T = problem_->get_T();
+  const std::size_t ndx = problem_->get_ndx();
+  const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
+  for (std::size_t t = 0; t < T; ++t) {
+    const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
+    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
+    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    fs_flat_.segment(t*ndx, ndx) = fs_[t];
+  }
+  fs_flat_.tail(ndx) = fs_.back();
+  const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
+  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
 }
 
 double SolverDDP::stoppingCriteria() {
@@ -299,7 +345,7 @@ void SolverDDP::forwardPass(const double steplength) {
   for (std::size_t t = 0; t < T; ++t) {
     const boost::shared_ptr<ActionModelAbstract>& m = models[t];
     const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-
+    lag_mul_[t].noalias() = Vxx_[t] * dx_[t] + Vx_[t]; 
     m->get_state()->diff(xs_[t], xs_try_[t], dx_[t]);
     if (m->get_nu() != 0) {
       us_try_[t].noalias() = us_[t];
@@ -324,6 +370,7 @@ void SolverDDP::forwardPass(const double steplength) {
 
   const boost::shared_ptr<ActionModelAbstract>& m = problem_->get_terminalModel();
   const boost::shared_ptr<ActionDataAbstract>& d = problem_->get_terminalData();
+  lag_mul_.back() = Vxx_.back() * dx_.back() + Vx_.back();
   m->calc(d, xs_try_.back());
   cost_try_ += d->cost;
 
