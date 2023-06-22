@@ -497,6 +497,7 @@ void SolverFADMM::checkKKTConditions(){
   const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
   KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back() + cdata->Cx.transpose() * y_.back()).lpNorm<Eigen::Infinity>());
   KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, constraint_norm_);
 }
 
 
