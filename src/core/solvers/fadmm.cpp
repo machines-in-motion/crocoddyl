@@ -23,7 +23,6 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
                           const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models)
     : SolverDDP(problem), cmodels_(constraint_models){
       
-      // std::cout << tmp << std::endl;
       const std::size_t T = this->problem_->get_T();
       const std::size_t ndx = problem_->get_ndx();
       sigma_diag_x = sigma_* Eigen::MatrixXd::Identity(ndx, ndx);
@@ -32,7 +31,6 @@ SolverFADMM::SolverFADMM(boost::shared_ptr<ShootingProblem> problem,
       constraint_list_.resize(filter_size_);
       gap_list_.resize(filter_size_);
       cost_list_.resize(filter_size_);
-      // std::cout << "ndx" << ndx << std::endl;
       fs_try_.resize(T + 1);
       fs_flat_.resize(ndx*(T + 1));
       fs_flat_.setZero();
@@ -431,9 +429,9 @@ void SolverFADMM::computeDirection(const bool recalcDiff){
     }
 
     // if (iter % rho_update_interval_ == 0 && iter > 1){
-      // std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
-      //         << " rho " << rho_sparse_ << std::endl;
-    //   }
+    //   std::cout << "Iters " << iter << " res-primal " << norm_primal_ << " res-dual " << norm_dual_ << " optimal rho estimate " << rho_estimate_sparse_
+    //           << " rho " << rho_sparse_ << std::endl;
+    // }
   }
 
   if (!converged_){
@@ -499,6 +497,7 @@ void SolverFADMM::checkKKTConditions(){
   const boost::shared_ptr<ConstraintDataAbstract>& cdata = cdatas_.back();
   KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back() + cdata->Cx.transpose() * y_.back()).lpNorm<Eigen::Infinity>());
   KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
+  KKT_ = std::max(KKT_, constraint_norm_);
 }
 
 
@@ -572,7 +571,7 @@ void SolverFADMM::backwardPass() {
     if (t > 0 && nc != 0){ //constraint model
       Qx_[t] += cdata->Cx.transpose() * (y_[t] -  rho_vec_[t].cwiseProduct(z_[t]));
     }
-
+    
     Qx_[t].noalias() += d->Fx.transpose() * Vx_p;
     STOP_PROFILER("SolverFADMM::Qx");
     START_PROFILER("SolverFADMM::Qxx");
@@ -591,6 +590,7 @@ void SolverFADMM::backwardPass() {
       if (nc != 0){ //constraint model
         Qu_[t] += cdata->Cu.transpose() * (y_[t] - rho_vec_[t].cwiseProduct(z_[t]));
       }
+      
 
       Qu_[t].noalias() += d->Fu.transpose() * Vx_p;
 
@@ -617,9 +617,7 @@ void SolverFADMM::backwardPass() {
         Quu_[t].diagonal().array() += ureg_;
       }
     }
-
     computeGains(t);
-
     Vx_[t] = Qx_[t];
     Vxx_[t] = Qxx_[t];
     if (nu != 0) {
@@ -629,9 +627,8 @@ void SolverFADMM::backwardPass() {
       Vxx_[t].noalias() -= Qxu_[t] * K_[t];
       STOP_PROFILER("SolverFADMM::Vxx");
     }
-    // Vxx_tmp_ = 0.5 * (Vxx_[t] + Vxx_[t].transpose());
-    // Vxx_[t] = Vxx_tmp_;
-
+    Vxx_tmp_ = 0.5 * (Vxx_[t] + Vxx_[t].transpose());
+    Vxx_[t] = Vxx_tmp_;
     if (!std::isnan(xreg_)) {
       Vxx_[t].diagonal().array() += xreg_;
     }
